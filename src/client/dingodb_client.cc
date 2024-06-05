@@ -23,11 +23,13 @@
 #include "brpc/channel.h"
 #include "brpc/controller.h"
 #include "bthread/bthread.h"
+#include "client/cli11.h"
 #include "client/client_helper.h"
 #include "client/client_interation.h"
 #include "client/coordinator_client_function.h"
 #include "client/store_client_function.h"
 #include "client/store_tool_dump.h"
+#include "client/subcommand_version.h"
 #include "common/helper.h"
 #include "common/logging.h"
 #include "common/version.h"
@@ -1113,93 +1115,215 @@ int CoordinatorSender() {
 
 std::shared_ptr<client::Context> global_ctx;
 
+//
+void PrintSubcommandHelp(const CLI::App& app, const std::string& subcommand_name) {
+  CLI::App* subcommand = app.get_subcommand(subcommand_name);
+  if (subcommand) {
+    std::cout << subcommand->help() << std::endl;
+  } else {
+    std::cout << "Unknown subcommand: " << subcommand_name << std::endl;
+  }
+}
+
+int InteractiveCli() {
+    //CLI::App app{"Interactive CLI11 Example with Subcommands"};
+    CLI::App app{"This is dingo_client"};
+    client::SetUp_Subcommand_RaftAddPeer(app);
+    client::SetUp_Subcommand_GetRegionMap(app);
+    client::SetUp_Subcommand_LogLevel(app);
+
+    std::string input;
+
+    while (true) {
+        std::cout << "> ";
+        std::getline(std::cin, input);
+
+        if (input == "exit" || input == "quit") {
+            break;
+        }
+
+        if (input == "help") {
+            std::cout << app.help() << std::endl;
+            continue;
+        }else if (input.rfind("help", 0) == 0) {
+            std::string subcommand_name = input.substr(5);
+            if (subcommand_name.empty()) {
+                std::cout << app.help() << std::endl;
+            } else {
+                PrintSubcommandHelp(app, subcommand_name);
+            }
+            continue;
+        }
+        std::vector<std::string> args;
+        std::istringstream iss(input);
+        for (std::string s; iss >> s;)
+            args.push_back(s);
+
+        std::vector<char*> argv;
+        for (auto& arg : args)
+            argv.push_back(&arg[0]);
+        argv.push_back(nullptr);
+        CLI11_PARSE(app, argv.size() - 1, argv.data());
+    }
+    return 0;
+}
 int main(int argc, char* argv[]) {
   FLAGS_minloglevel = google::GLOG_INFO;
-  FLAGS_logtostdout = true;
+  FLAGS_logtostdout = false;
   FLAGS_colorlogtostdout = true;
   FLAGS_logbufsecs = 0;
   google::InitGoogleLogging(argv[0]);
 
+  // if (argc > 1) {
+  //   if (dingodb::Helper::IsExistPath(argv[1])) {
+  //     google::SetCommandLineOption("flagfile", argv[1]);
+  //   } else {
+  //     FLAGS_method = argv[1];
+  //   }
+  // }
+
+  // google::ParseCommandLineFlags(&argc, &argv, true);
+
   if (argc > 1) {
-    if (dingodb::Helper::IsExistPath(argv[1])) {
-      google::SetCommandLineOption("flagfile", argv[1]);
-    } else {
-      FLAGS_method = argv[1];
-    }
-  }
+    CLI::App app{"This is dingo_client"};
+    app.get_formatter()->column_width(40);  // 列的宽度
 
-  google::ParseCommandLineFlags(&argc, &argv, true);
-
-  if (dingodb::FLAGS_show_version || FLAGS_method.empty()) {
-    dingodb::DingoShowVerion();
-    printf("Usage: %s [method] [paramters]\n", argv[0]);                  // NOLINT
-    printf("Example: %s CreateTable --name=test_table_name\n", argv[0]);  // NOLINT
-    exit(-1);
-  }
-
-  if (FLAGS_coor_url.empty()) {
-    DINGO_LOG(ERROR) << "coordinator url is empty, try to use file://./coor_list";
-    FLAGS_coor_url = "file://./coor_list";
-  }
-
-  if (!FLAGS_url.empty()) {
-    FLAGS_coor_url = FLAGS_url;
-  }
-
-  auto ctx = std::make_shared<client::Context>();
-  if (!FLAGS_coor_url.empty()) {
-    std::string path = FLAGS_coor_url;
-    path = path.replace(path.find("file://"), 7, "");
-    auto addrs = client::Helper::GetAddrsFromFile(path);
-    if (addrs.empty()) {
-      DINGO_LOG(ERROR) << "url not find addr, path=" << path;
-      return -1;
-    }
-
-    auto coordinator_interaction = std::make_shared<client::ServerInteraction>();
-    if (!coordinator_interaction->Init(addrs)) {
-      DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << FLAGS_coor_url;
-      return -1;
-    }
-
-    client::InteractionManager::GetInstance().SetCoorinatorInteraction(coordinator_interaction);
-  }
-
-  // this is for legacy coordinator_client use, will be removed in the future
-  if (!FLAGS_coor_url.empty()) {
-    coordinator_interaction = std::make_shared<dingodb::CoordinatorInteraction>();
-    if (!coordinator_interaction->InitByNameService(
-            FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeCoordinator)) {
-      DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << FLAGS_coor_url;
-      return -1;
-    }
-
-    coordinator_interaction_meta = std::make_shared<dingodb::CoordinatorInteraction>();
-    if (!coordinator_interaction_meta->InitByNameService(
-            FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeMeta)) {
-      DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_meta, please check parameter --url=" << FLAGS_coor_url;
-      return -1;
-    }
-
-    coordinator_interaction_version = std::make_shared<dingodb::CoordinatorInteraction>();
-    if (!coordinator_interaction_version->InitByNameService(
-            FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeVersion)) {
-      DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_version, please check parameter --url="
-                       << FLAGS_coor_url;
-      return -1;
-    }
-  }
-
-  if (!FLAGS_addr.empty()) {
-    FLAGS_coordinator_addr = FLAGS_addr;
-  }
-
-  global_ctx = ctx;
-
-  auto ret = CoordinatorSender();
-  if (ret < 0) {
-    Sender(ctx, FLAGS_method, FLAGS_round_num);
+    client::SetUp_Subcommand_RaftAddPeer(app);
+    client::SetUp_Subcommand_GetRegionMap(app);
+    client::SetUp_Subcommand_LogLevel(app);
+    CLI11_PARSE(app, argc, argv);
+  } else {
+    InteractiveCli();
   }
 
   return 0;
+  // if (FLAGS_coor_url.empty()) {
+  //   DINGO_LOG(ERROR) << "coordinator url is empty, try to use file://./coor_list";
+  //   FLAGS_coor_url = "file://./coor_list";
+  // }
+
+  // DINGO_LOG(INFO) << "url=" << FLAGS_coor_url << ", addr=" << FLAGS_coordinator_addr;
+  // auto ctx = std::make_shared<client::Context>();
+  // if (!FLAGS_coor_url.empty()) {
+  //   std::string path = FLAGS_coor_url;
+  //   path = path.replace(path.find("file://"), 7, "");
+  //   auto addrs = client::Helper::GetAddrsFromFile(path);
+  //   if (addrs.empty()) {
+  //     DINGO_LOG(ERROR) << "url not find addr, path=" << path;
+  //     return -1;
+  //   }
+
+  //   auto coordinator_interaction = std::make_shared<client::ServerInteraction>();
+  //   if (!coordinator_interaction->Init(addrs)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << FLAGS_coor_url;
+  //     return -1;
+  //   }
+
+  //   client::InteractionManager::GetInstance().SetCoorinatorInteraction(coordinator_interaction);
+  // }
+
+  // // this is for legacy coordinator_client use, will be removed in the future
+  // if (!FLAGS_coor_url.empty()) {
+  //   coordinator_interaction = std::make_shared<dingodb::CoordinatorInteraction>();
+  //   if (!coordinator_interaction->InitByNameService(
+  //           FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeCoordinator)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << FLAGS_coor_url;
+  //     return -1;
+  //   }
+
+  //   coordinator_interaction_meta = std::make_shared<dingodb::CoordinatorInteraction>();
+  //   if (!coordinator_interaction_meta->InitByNameService(
+  //           FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeMeta)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_meta, please check parameter --url=" <<
+  //     FLAGS_coor_url; return -1;
+  //   }
+
+  //   coordinator_interaction_version = std::make_shared<dingodb::CoordinatorInteraction>();
+  //   if (!coordinator_interaction_version->InitByNameService(
+  //           FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeVersion)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_version, please check parameter --url="
+  //                      << FLAGS_coor_url;
+  //     return -1;
+  //   }
+  // }
+  // global_ctx = ctx;
+
+  // auto ret = CoordinatorSender();
+  // if (ret < 0) {
+  //   Sender(ctx, FLAGS_method, FLAGS_round_num);
+  // }
+  // return 0;
+
+  // if (dingodb::FLAGS_show_version || FLAGS_method.empty()) {
+  //   dingodb::DingoShowVerion();
+  //   printf("Usage: %s [method] [paramters]\n", argv[0]);                  // NOLINT
+  //   printf("Example: %s CreateTable --name=test_table_name\n", argv[0]);  // NOLINT
+  //   exit(-1);
+  // }
+
+  // if (FLAGS_coor_url.empty()) {
+  //   DINGO_LOG(ERROR) << "coordinator url is empty, try to use file://./coor_list";
+  //   FLAGS_coor_url = "file://./coor_list";
+  // }
+
+  // if (!FLAGS_url.empty()) {
+  //   FLAGS_coor_url = FLAGS_url;
+  // }
+
+  // auto ctx = std::make_shared<client::Context>();
+  // if (!FLAGS_coor_url.empty()) {
+  //   std::string path = FLAGS_coor_url;
+  //   path = path.replace(path.find("file://"), 7, "");
+  //   auto addrs = client::Helper::GetAddrsFromFile(path);
+  //   if (addrs.empty()) {
+  //     DINGO_LOG(ERROR) << "url not find addr, path=" << path;
+  //     return -1;
+  //   }
+
+  //   auto coordinator_interaction = std::make_shared<client::ServerInteraction>();
+  //   if (!coordinator_interaction->Init(addrs)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << FLAGS_coor_url;
+  //     return -1;
+  //   }
+
+  //   client::InteractionManager::GetInstance().SetCoorinatorInteraction(coordinator_interaction);
+  // }
+
+  // // this is for legacy coordinator_client use, will be removed in the future
+  // if (!FLAGS_coor_url.empty()) {
+  //   coordinator_interaction = std::make_shared<dingodb::CoordinatorInteraction>();
+  //   if (!coordinator_interaction->InitByNameService(
+  //           FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeCoordinator)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << FLAGS_coor_url;
+  //     return -1;
+  //   }
+
+  //   coordinator_interaction_meta = std::make_shared<dingodb::CoordinatorInteraction>();
+  //   if (!coordinator_interaction_meta->InitByNameService(
+  //           FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeMeta)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_meta, please check parameter --url=" <<
+  //     FLAGS_coor_url; return -1;
+  //   }
+
+  //   coordinator_interaction_version = std::make_shared<dingodb::CoordinatorInteraction>();
+  //   if (!coordinator_interaction_version->InitByNameService(
+  //           FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeVersion)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_version, please check parameter --url="
+  //                      << FLAGS_coor_url;
+  //     return -1;
+  //   }
+  // }
+
+  // if (!FLAGS_addr.empty()) {
+  //   FLAGS_coordinator_addr = FLAGS_addr;
+  // }
+
+  // global_ctx = ctx;
+
+  // auto ret = CoordinatorSender();
+  // if (ret < 0) {
+  //   Sender(ctx, FLAGS_method, FLAGS_round_num);
+  // }
+
+  // return 0;
 }
