@@ -23,13 +23,13 @@
 #include "brpc/channel.h"
 #include "brpc/controller.h"
 #include "bthread/bthread.h"
-#include "client/cli11.h"
-#include "client/client_helper.h"
-#include "client/client_interation.h"
-#include "client/coordinator_client_function.h"
-#include "client/store_client_function.h"
-#include "client/store_tool_dump.h"
-#include "client/subcommand_version.h"
+#include "client_v2/cli11.h"
+#include "client_v2/client_helper.h"
+#include "client_v2/client_interation.h"
+#include "client_v2/coordinator_client_function.h"
+#include "client_v2/store_client_function.h"
+#include "client_v2/store_tool_dump.h"
+#include "client_v2/subcommand_coordinator.h"
 #include "common/helper.h"
 #include "common/logging.h"
 #include "common/version.h"
@@ -299,7 +299,7 @@ int ValidateParam() {
   return 0;
 }
 
-void Sender(std::shared_ptr<client::Context> ctx, const std::string& method, int round_num) {
+void Sender(std::shared_ptr<client_v2::Context> ctx, const std::string& method, int round_num) {
   auto ret = ValidateParam();
   if (ret < 0) {
     DINGO_LOG(ERROR) << "ValidateParam error";
@@ -310,14 +310,14 @@ void Sender(std::shared_ptr<client::Context> ctx, const std::string& method, int
   butil::SplitString(FLAGS_raft_addrs, ',', &raft_addrs);
 
   if (!FLAGS_store_addrs.empty()) {
-    if (!client::InteractionManager::GetInstance().CreateStoreInteraction({FLAGS_store_addrs})) {
+    if (!client_v2::InteractionManager::GetInstance().CreateStoreInteraction({FLAGS_store_addrs})) {
       return;
     }
 
   } else if (FLAGS_region_id != 0 || FLAGS_source_id != 0) {
     int64_t region_id = FLAGS_region_id != 0 ? FLAGS_region_id : FLAGS_source_id;
     // Get store addr from coordinator
-    auto status = client::InteractionManager::GetInstance().CreateStoreInteraction(region_id);
+    auto status = client_v2::InteractionManager::GetInstance().CreateStoreInteraction(region_id);
     if (!status.ok()) {
       DINGO_LOG(ERROR) << "Create store interaction failed, error: " << status.error_cstr();
       return;
@@ -328,140 +328,142 @@ void Sender(std::shared_ptr<client::Context> ctx, const std::string& method, int
     DINGO_LOG(INFO) << fmt::format("round: {} / {}", i, round_num);
     // Region operation
     if (method == "AddRegion") {
-      client::SendAddRegion(FLAGS_region_id, FLAGS_raft_group, raft_addrs);
+      client_v2::SendAddRegion(FLAGS_region_id, FLAGS_raft_group, raft_addrs);
     } else if (method == "ChangeRegion") {
-      client::SendChangeRegion(FLAGS_region_id, FLAGS_raft_group, raft_addrs);
+      client_v2::SendChangeRegion(FLAGS_region_id, FLAGS_raft_group, raft_addrs);
     } else if (method == "MergeRegionAtStore") {
-      client::SendMergeRegion(FLAGS_source_id, FLAGS_target_id);
+      client_v2::SendMergeRegion(FLAGS_source_id, FLAGS_target_id);
     } else if (method == "DestroyRegion") {
-      client::SendDestroyRegion(FLAGS_region_id);
+      client_v2::SendDestroyRegion(FLAGS_region_id);
     } else if (method == "Snapshot") {
-      client::SendSnapshot(FLAGS_region_id);
+      client_v2::SendSnapshot(FLAGS_region_id);
     } else if (method == "BatchAddRegion") {
-      client::BatchSendAddRegion(FLAGS_region_id, FLAGS_region_count, FLAGS_thread_num, FLAGS_raft_group, raft_addrs);
+      client_v2::BatchSendAddRegion(FLAGS_region_id, FLAGS_region_count, FLAGS_thread_num, FLAGS_raft_group,
+                                    raft_addrs);
     } else if (method == "SnapshotVectorIndex") {
-      client::SendSnapshotVectorIndex(FLAGS_region_id);
+      client_v2::SendSnapshotVectorIndex(FLAGS_region_id);
     } else if (method == "Compact") {
-      client::SendCompact("");
+      client_v2::SendCompact("");
 
     } else if (method == "GetMemoryStats") {
-      client::GetMemoryStats();
+      client_v2::GetMemoryStats();
     } else if (method == "ReleaseFreeMemory") {
-      client::ReleaseFreeMemory(FLAGS_rate);
+      client_v2::ReleaseFreeMemory(FLAGS_rate);
       // Kev/Value operation
     } else if (method == "KvGet") {
       std::string value;
-      client::SendKvGet(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_key), value);
+      client_v2::SendKvGet(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_key), value);
       DINGO_LOG(INFO) << "value: " << value;
-
     } else if (method == "KvBatchGet") {
-      client::SendKvBatchGet(FLAGS_region_id, FLAGS_prefix, FLAGS_req_num);
+      client_v2::SendKvBatchGet(FLAGS_region_id, FLAGS_prefix, FLAGS_req_num);
     } else if (method == "KvPut") {
-      std::string value = FLAGS_value.empty() ? client::Helper::GenRandomString(256) : FLAGS_value;
+      std::string value = FLAGS_value.empty() ? client_v2::Helper::GenRandomString(256) : FLAGS_value;
       DINGO_LOG(INFO) << "value:" << value;
-      client::SendKvPut(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_key), value);
+      client_v2::SendKvPut(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_key), value);
     } else if (method == "KvBatchPut") {
-      client::SendKvBatchPut(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_prefix), FLAGS_count);
+      client_v2::SendKvBatchPut(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_prefix), FLAGS_count);
     } else if (method == "KvPutIfAbsent") {
-      client::SendKvPutIfAbsent(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_key));
+      client_v2::SendKvPutIfAbsent(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_key));
     } else if (method == "KvBatchPutIfAbsent") {
-      client::SendKvBatchPutIfAbsent(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_prefix), FLAGS_count);
+      client_v2::SendKvBatchPutIfAbsent(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_prefix), FLAGS_count);
     } else if (method == "KvBatchDelete") {
-      client::SendKvBatchDelete(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_key));
+      client_v2::SendKvBatchDelete(FLAGS_region_id, dingodb::Helper::HexToString(FLAGS_key));
     } else if (method == "KvDeleteRange") {
-      client::SendKvDeleteRange(FLAGS_region_id, FLAGS_prefix);
+      client_v2::SendKvDeleteRange(FLAGS_region_id, FLAGS_prefix);
     } else if (method == "KvScan") {
-      client::SendKvScan(FLAGS_region_id, FLAGS_prefix);
+      client_v2::SendKvScan(FLAGS_region_id, FLAGS_prefix);
     } else if (method == "KvCompareAndSet") {
-      client::SendKvCompareAndSet(FLAGS_region_id, FLAGS_key);
+      client_v2::SendKvCompareAndSet(FLAGS_region_id, FLAGS_key);
     } else if (method == "KvBatchCompareAndSet") {
-      client::SendKvBatchCompareAndSet(FLAGS_region_id, FLAGS_prefix, 100);
+      client_v2::SendKvBatchCompareAndSet(FLAGS_region_id, FLAGS_prefix, 100);
     } else if (method == "KvScanBeginV2") {
-      client::SendKvScanBeginV2(FLAGS_region_id, FLAGS_scan_id);
+      client_v2::SendKvScanBeginV2(FLAGS_region_id, FLAGS_scan_id);
     } else if (method == "KvScanContinueV2") {
-      client::SendKvScanContinueV2(FLAGS_region_id, FLAGS_scan_id);
+      client_v2::SendKvScanContinueV2(FLAGS_region_id, FLAGS_scan_id);
     } else if (method == "KvScanReleaseV2") {
-      client::SendKvScanReleaseV2(FLAGS_region_id, FLAGS_scan_id);
+      client_v2::SendKvScanReleaseV2(FLAGS_region_id, FLAGS_scan_id);
     }
 
     // txn
     else if (method == "TxnGet") {
-      client::SendTxnGet(FLAGS_region_id);
+      client_v2::SendTxnGet(FLAGS_region_id);
     } else if (method == "TxnScan") {
-      client::SendTxnScan(FLAGS_region_id);
+      client_v2::SendTxnScan(FLAGS_region_id);
     } else if (method == "TxnPessimisticLock") {
-      client::SendTxnPessimisticLock(FLAGS_region_id);
+      client_v2::SendTxnPessimisticLock(FLAGS_region_id);
     } else if (method == "TxnPessimisticRollback") {
-      client::SendTxnPessimisticRollback(FLAGS_region_id);
+      client_v2::SendTxnPessimisticRollback(FLAGS_region_id);
     } else if (method == "TxnPrewrite") {
-      client::SendTxnPrewrite(FLAGS_region_id);
+      client_v2::SendTxnPrewrite(FLAGS_region_id);
     } else if (method == "TxnCommit") {
-      client::SendTxnCommit(FLAGS_region_id);
+      client_v2::SendTxnCommit(FLAGS_region_id);
     } else if (method == "TxnCheckTxnStatus") {
-      client::SendTxnCheckTxnStatus(FLAGS_region_id);
+      client_v2::SendTxnCheckTxnStatus(FLAGS_region_id);
     } else if (method == "TxnResolveLock") {
-      client::SendTxnResolveLock(FLAGS_region_id);
+      client_v2::SendTxnResolveLock(FLAGS_region_id);
     } else if (method == "TxnBatchGet") {
-      client::SendTxnBatchGet(FLAGS_region_id);
+      client_v2::SendTxnBatchGet(FLAGS_region_id);
     } else if (method == "TxnBatchRollback") {
-      client::SendTxnBatchRollback(FLAGS_region_id);
+      client_v2::SendTxnBatchRollback(FLAGS_region_id);
     } else if (method == "TxnScanLock") {
-      client::SendTxnScanLock(FLAGS_region_id);
+      client_v2::SendTxnScanLock(FLAGS_region_id);
     } else if (method == "TxnHeartBeat") {
-      client::SendTxnHeartBeat(FLAGS_region_id);
+      client_v2::SendTxnHeartBeat(FLAGS_region_id);
     } else if (method == "TxnGC") {
-      client::SendTxnGc(FLAGS_region_id);
+      client_v2::SendTxnGc(FLAGS_region_id);
     } else if (method == "TxnDeleteRange") {
-      client::SendTxnDeleteRange(FLAGS_region_id);
+      client_v2::SendTxnDeleteRange(FLAGS_region_id);
     } else if (method == "TxnDump") {
-      client::SendTxnDump(FLAGS_region_id);
+      client_v2::SendTxnDump(FLAGS_region_id);
     }
 
     // document operation
-    else if (method == "DocumentDelete") {
-      client::SendDocumentDelete(FLAGS_region_id, FLAGS_start_id, FLAGS_count);
-    } else if (method == "DocumentAdd") {
-      client::SendDocumentAdd(FLAGS_region_id);
-    } else if (method == "DocumentSearch") {
-      client::SendDocumentSearch(FLAGS_region_id);
-    } else if (method == "DocumentBatchQuery") {
-      client::SendDocumentBatchQuery(FLAGS_region_id, {static_cast<int64_t>(FLAGS_document_id)});
-    } else if (method == "DocumentScanQuery") {
-      client::SendDocumentScanQuery(FLAGS_region_id, FLAGS_start_id, FLAGS_end_id, FLAGS_limit, FLAGS_is_reverse);
-    } else if (method == "DocumentGetMaxId") {
-      client::SendDocumentGetMaxId(FLAGS_region_id);
-    } else if (method == "DocumentGetMinId") {
-      client::SendDocumentGetMinId(FLAGS_region_id);
-    } else if (method == "DocumentCount") {
-      client::SendDocumentCount(FLAGS_region_id, FLAGS_start_id, FLAGS_end_id);
-    } else if (method == "DocumentGetRegionMetrics") {
-      client::SendDocumentGetRegionMetrics(FLAGS_region_id);
-    }
+    // else if (method == "DocumentDelete") {
+    //   client_v2::SendDocumentDelete(FLAGS_region_id, FLAGS_start_id, FLAGS_count);
+    // } else if (method == "DocumentAdd") {
+    //   client_v2::SendDocumentAdd(FLAGS_region_id);
+    // } else if (method == "DocumentSearch") {
+    //   client_v2::SendDocumentSearch(FLAGS_region_id);
+    // } else if (method == "DocumentBatchQuery") {
+    //   client_v2::SendDocumentBatchQuery(FLAGS_region_id, {static_cast<int64_t>(FLAGS_document_id)});
+    // } else if (method == "DocumentScanQuery") {
+    //   //client_v2::SendDocumentScanQuery(FLAGS_region_id, FLAGS_start_id, FLAGS_end_id, FLAGS_limit,
+    //   FLAGS_is_reverse);
+    // } else if (method == "DocumentGetMaxId") {
+    //   client_v2::SendDocumentGetMaxId(FLAGS_region_id);
+    // } else if (method == "DocumentGetMinId") {
+    //   client_v2::SendDocumentGetMinId(FLAGS_region_id);
+    // } else if (method == "DocumentCount") {
+    //   client_v2::SendDocumentCount(FLAGS_region_id, FLAGS_start_id, FLAGS_end_id);
+    // } else if (method == "DocumentGetRegionMetrics") {
+    //   client_v2::SendDocumentGetRegionMetrics(FLAGS_region_id);
+    // }
 
     // vector operation
     else if (method == "VectorSearch") {
       // We cant use FLAGS_vector_data to define the vector we want to search, the format is:
       // 1.0, 2.0, 3.0, 4.0
       // only one vector data, no new line at the end of the file, and only float value and , is allowed
-      client::SendVectorSearch(FLAGS_region_id, FLAGS_dimension, FLAGS_topn);
+      // client_v2::SendVectorSearch(FLAGS_region_id, FLAGS_dimension, FLAGS_topn);
     } else if (method == "VectorSearchDebug") {
-      client::SendVectorSearchDebug(FLAGS_region_id, FLAGS_dimension, FLAGS_vector_id, FLAGS_topn, FLAGS_batch_count,
-                                    FLAGS_key, FLAGS_value);
+      // client_v2::SendVectorSearchDebug(FLAGS_region_id, FLAGS_dimension, FLAGS_vector_id, FLAGS_topn,
+      // FLAGS_batch_count,
+      //                                  FLAGS_key, FLAGS_value);
     } else if (method == "VectorRangeSearch") {
-      client::SendVectorRangeSearch(FLAGS_region_id, FLAGS_dimension, FLAGS_radius);
+      // client_v2::SendVectorRangeSearch(FLAGS_region_id, FLAGS_dimension, FLAGS_radius);
     } else if (method == "VectorRangeSearchDebug") {
-      client::SendVectorRangeSearchDebug(FLAGS_region_id, FLAGS_dimension, FLAGS_vector_id, FLAGS_radius,
-                                         FLAGS_batch_count, FLAGS_key, FLAGS_value);
+      // client_v2::SendVectorRangeSearchDebug(FLAGS_region_id, FLAGS_dimension, FLAGS_vector_id, FLAGS_radius,
+      //                                       FLAGS_batch_count, FLAGS_key, FLAGS_value);
     } else if (method == "VectorBatchSearch") {
-      client::SendVectorBatchSearch(FLAGS_region_id, FLAGS_dimension, FLAGS_topn, FLAGS_batch_count);
+      // client_v2::SendVectorBatchSearch(FLAGS_region_id, FLAGS_dimension, FLAGS_topn, FLAGS_batch_count);
     } else if (method == "VectorBatchQuery") {
-      client::SendVectorBatchQuery(FLAGS_region_id, {static_cast<int64_t>(FLAGS_vector_id)});
+      // client_v2::SendVectorBatchQuery(FLAGS_region_id, {static_cast<int64_t>(FLAGS_vector_id)});
     } else if (method == "VectorScanQuery") {
-      client::SendVectorScanQuery(FLAGS_region_id, FLAGS_start_id, FLAGS_end_id, FLAGS_limit, FLAGS_is_reverse);
+      // client_v2::SendVectorScanQuery(FLAGS_region_id, FLAGS_start_id, FLAGS_end_id, FLAGS_limit, FLAGS_is_reverse);
     } else if (method == "VectorScanDump") {
-      client::SendVectorScanDump(FLAGS_region_id, FLAGS_start_id, FLAGS_end_id, FLAGS_limit, FLAGS_is_reverse);
+      // client_v2::SendVectorScanDump(FLAGS_region_id, FLAGS_start_id, FLAGS_end_id, FLAGS_limit, FLAGS_is_reverse);
     } else if (method == "VectorGetRegionMetrics") {
-      client::SendVectorGetRegionMetrics(FLAGS_region_id);
+      // client_v2::SendVectorGetRegionMetrics(FLAGS_region_id);
     } else if (method == "VectorAdd") {
       ctx->table_id = FLAGS_table_id;
       ctx->region_id = FLAGS_region_id;
@@ -481,32 +483,32 @@ void Sender(std::shared_ptr<client::Context> ctx, const std::string& method, int
       // the line count must equal to the vector count, no new line at the end of the file
 
       if (ctx->table_id > 0) {
-        client::SendVectorAddRetry(ctx);
+        client_v2::SendVectorAddRetry(ctx);
       } else {
-        client::SendVectorAdd(ctx);
+        client_v2::SendVectorAdd(ctx);
       }
     } else if (method == "VectorDelete") {
-      client::SendVectorDelete(FLAGS_region_id, FLAGS_start_id, FLAGS_count);
+      client_v2::SendVectorDelete(FLAGS_region_id, FLAGS_start_id, FLAGS_count);
     } else if (method == "VectorGetMaxId") {
-      client::SendVectorGetMaxId(FLAGS_region_id);
+      client_v2::SendVectorGetMaxId(FLAGS_region_id);
     } else if (method == "VectorGetMinId") {
-      client::SendVectorGetMinId(FLAGS_region_id);
+      client_v2::SendVectorGetMinId(FLAGS_region_id);
     } else if (method == "VectorAddBatch") {
-      client::SendVectorAddBatch(FLAGS_region_id, FLAGS_dimension, FLAGS_count, FLAGS_step_count, FLAGS_start_id,
-                                 FLAGS_vector_index_add_cost_file);
+      client_v2::SendVectorAddBatch(FLAGS_region_id, FLAGS_dimension, FLAGS_count, FLAGS_step_count, FLAGS_start_id,
+                                    FLAGS_vector_index_add_cost_file);
     } else if (method == "VectorAddBatchDebug") {
-      client::SendVectorAddBatchDebug(FLAGS_region_id, FLAGS_dimension, FLAGS_count, FLAGS_step_count, FLAGS_start_id,
-                                      FLAGS_vector_index_add_cost_file);
+      client_v2::SendVectorAddBatchDebug(FLAGS_region_id, FLAGS_dimension, FLAGS_count, FLAGS_step_count,
+                                         FLAGS_start_id, FLAGS_vector_index_add_cost_file);
     } else if (method == "VectorCalcDistance") {
-      client::SendVectorCalcDistance(FLAGS_dimension, FLAGS_alg_type, FLAGS_metric_type, FLAGS_left_vector_size,
-                                     FLAGS_right_vector_size, FLAGS_is_return_normlize);
+      client_v2::SendVectorCalcDistance(FLAGS_dimension, FLAGS_alg_type, FLAGS_metric_type, FLAGS_left_vector_size,
+                                        FLAGS_right_vector_size, FLAGS_is_return_normlize);
     } else if (method == "CalcDistance") {
-      client::SendCalcDistance();
+      // client_v2::SendCalcDistance();
     } else if (method == "VectorCount") {
-      client::SendVectorCount(FLAGS_region_id, FLAGS_start_id, FLAGS_end_id);
+      // client_v2::SendVectorCount(FLAGS_region_id, FLAGS_start_id, FLAGS_end_id);
     } else if (method == "CountVectorTable") {
-      ctx->table_id = FLAGS_table_id;
-      client::CountVectorTable(ctx);
+      // ctx->table_id = FLAGS_table_id;
+      // client_v2::CountVectorTable(ctx);
 
       // Test
     } else if (method == "TestBatchPut") {
@@ -516,14 +518,14 @@ void Sender(std::shared_ptr<client::Context> ctx, const std::string& method, int
       ctx->req_num = FLAGS_req_num;
       ctx->prefix = FLAGS_prefix;
 
-      client::TestBatchPut(ctx);
+      client_v2::TestBatchPut(ctx);
     } else if (method == "TestBatchPutGet") {
-      client::TestBatchPutGet(FLAGS_region_id, FLAGS_thread_num, FLAGS_req_num, FLAGS_prefix);
+      client_v2::TestBatchPutGet(FLAGS_region_id, FLAGS_thread_num, FLAGS_req_num, FLAGS_prefix);
     } else if (method == "TestRegionLifecycle") {
-      client::TestRegionLifecycle(FLAGS_region_id, FLAGS_raft_group, raft_addrs, FLAGS_region_count, FLAGS_thread_num,
-                                  FLAGS_req_num, FLAGS_prefix);
+      client_v2::TestRegionLifecycle(FLAGS_region_id, FLAGS_raft_group, raft_addrs, FLAGS_region_count,
+                                     FLAGS_thread_num, FLAGS_req_num, FLAGS_prefix);
     } else if (method == "TestDeleteRangeWhenTransferLeader") {
-      client::TestDeleteRangeWhenTransferLeader(FLAGS_region_id, FLAGS_req_num, FLAGS_prefix);
+      client_v2::TestDeleteRangeWhenTransferLeader(FLAGS_region_id, FLAGS_req_num, FLAGS_prefix);
     }
 
     // Auto test
@@ -549,16 +551,16 @@ void Sender(std::shared_ptr<client::Context> ctx, const std::string& method, int
     // Table operation
     else if (method == "AutoDropTable") {
       ctx->req_num = FLAGS_req_num;
-      client::AutoDropTable(ctx);
+      client_v2::AutoDropTable(ctx);
     }
     // Check table range
     else if (method == "CheckTableDistribution") {
       ctx->table_id = FLAGS_table_id;
       ctx->key = FLAGS_key;
-      client::CheckTableDistribution(ctx);
+      client_v2::CheckTableDistribution(ctx);
     } else if (method == "CheckIndexDistribution") {
       ctx->table_id = FLAGS_table_id;
-      client::CheckIndexDistribution(ctx);
+      client_v2::CheckIndexDistribution(ctx);
     } else if (method == "DumpDb") {
       ctx->table_id = FLAGS_table_id;
       ctx->index_id = FLAGS_index_id;
@@ -582,7 +584,7 @@ void Sender(std::shared_ptr<client::Context> ctx, const std::string& method, int
         DINGO_LOG(ERROR) << "Param limit is error.";
         return;
       }
-      client::DumpDb(ctx);
+      client_v2::DumpDb(ctx);
     } else if (method == "WhichRegion") {
       ctx->table_id = FLAGS_table_id;
       ctx->index_id = FLAGS_index_id;
@@ -1008,14 +1010,14 @@ int CoordinatorSender() {
       DINGO_LOG(ERROR) << "key is empty";
       exit(-1);
     }
-    auto str = client::StringToHex(FLAGS_key);
+    auto str = client_v2::StringToHex(FLAGS_key);
     DINGO_LOG(INFO) << fmt::format("key: {} to hex: {}", FLAGS_key, str);
   } else if (method == "HexToString") {
     if (FLAGS_key.empty()) {
       DINGO_LOG(ERROR) << "key is empty";
       exit(-1);
     }
-    auto str = client::HexToString(FLAGS_key);
+    auto str = client_v2::HexToString(FLAGS_key);
     DINGO_LOG(INFO) << fmt::format("hex: {} to key: {}", FLAGS_key, str);
   } else if (method == "EncodeTablePrefixToHex") {
     if (FLAGS_key.empty() && FLAGS_part_id == 0) {
@@ -1033,14 +1035,14 @@ int CoordinatorSender() {
 
     std::string key = FLAGS_key;
     if (FLAGS_key_is_hex) {
-      key = client::HexToString(FLAGS_key);
+      key = client_v2::HexToString(FLAGS_key);
     }
     if (FLAGS_key.empty()) {
-      region_header = client::TablePrefixToHex(FLAGS_region_prefix.at(0), FLAGS_part_id);
+      region_header = client_v2::TablePrefixToHex(FLAGS_region_prefix.at(0), FLAGS_part_id);
     } else if (FLAGS_part_id == 0) {
-      region_header = client::TablePrefixToHex(FLAGS_region_prefix.at(0), key);
+      region_header = client_v2::TablePrefixToHex(FLAGS_region_prefix.at(0), key);
     } else {
-      region_header = client::TablePrefixToHex(FLAGS_region_prefix.at(0), FLAGS_part_id, key);
+      region_header = client_v2::TablePrefixToHex(FLAGS_region_prefix.at(0), FLAGS_part_id, key);
     }
     DINGO_LOG(INFO) << fmt::format("prefix: {} part_id: {}, key: {} to key: {}", FLAGS_region_prefix, FLAGS_part_id,
                                    FLAGS_key, region_header);
@@ -1063,9 +1065,9 @@ int CoordinatorSender() {
     }
     std::string region_header;
     if (FLAGS_vector_id == 0) {
-      region_header = client::VectorPrefixToHex(FLAGS_region_prefix.at(0), FLAGS_part_id);
+      region_header = client_v2::VectorPrefixToHex(FLAGS_region_prefix.at(0), FLAGS_part_id);
     } else {
-      region_header = client::VectorPrefixToHex(FLAGS_region_prefix.at(0), FLAGS_part_id, FLAGS_vector_id);
+      region_header = client_v2::VectorPrefixToHex(FLAGS_region_prefix.at(0), FLAGS_part_id, FLAGS_vector_id);
     }
     DINGO_LOG(INFO) << fmt::format("prefix: {} part_id: {}, vector_id {} to key(hex): [{}]", FLAGS_region_prefix,
                                    FLAGS_part_id, FLAGS_vector_id, region_header);
@@ -1076,12 +1078,12 @@ int CoordinatorSender() {
     }
     std::string key = FLAGS_key;
     if (!FLAGS_key_is_hex) {
-      key = client::StringToHex(FLAGS_key);
+      key = client_v2::StringToHex(FLAGS_key);
     }
     bool has_part_id = FLAGS_part_id > 0;
     DINGO_LOG(INFO) << "part_id: " << FLAGS_part_id << " has_part_id: " << has_part_id;
 
-    auto str = client::HexToTablePrefix(key, has_part_id);
+    auto str = client_v2::HexToTablePrefix(key, has_part_id);
     DINGO_LOG(INFO) << fmt::format("hex: {} to key: {}", FLAGS_key, str);
   } else if (method == "DecodeVectorPrefix") {
     if (FLAGS_key.empty()) {
@@ -1090,16 +1092,16 @@ int CoordinatorSender() {
     }
     std::string key = FLAGS_key;
     if (!FLAGS_key_is_hex) {
-      key = client::StringToHex(FLAGS_key);
+      key = client_v2::StringToHex(FLAGS_key);
     }
-    auto str = client::HexToVectorPrefix(key);
+    auto str = client_v2::HexToVectorPrefix(key);
     DINGO_LOG(INFO) << fmt::format("hex: {} to key: {}", FLAGS_key, str);
   } else if (method == "OctalToHex") {
     if (FLAGS_key.empty()) {
       DINGO_LOG(ERROR) << "key is empty";
       exit(-1);
     }
-    auto str = client::OctalToHex(FLAGS_key);
+    auto str = client_v2::OctalToHex(FLAGS_key);
     DINGO_LOG(INFO) << fmt::format("oct: {} to hex: {}", FLAGS_key, str);
   }
 
@@ -1114,7 +1116,7 @@ int CoordinatorSender() {
   return 0;
 }
 
-std::shared_ptr<client::Context> global_ctx;
+std::shared_ptr<client_v2::Context> global_ctx;
 
 //
 void PrintSubcommandHelp(const CLI::App& app, const std::string& subcommand_name) {
@@ -1128,10 +1130,10 @@ void PrintSubcommandHelp(const CLI::App& app, const std::string& subcommand_name
 
 int InteractiveCli() {
   // CLI::App app{"Interactive CLI11 Example with Subcommands"};
-  CLI::App app{"This is dingo_client"};
-  client::SetUp_Subcommand_RaftAddPeer(app);
-  client::SetUp_Subcommand_GetRegionMap(app);
-  client::SetUp_Subcommand_LogLevel(app);
+  CLI::App app{"This is dingo_client_v2"};
+  client_v2::SetUpSubcommandRaftAddPeer(app);
+  client_v2::SetUpSubcommandGetRegionMap(app);
+  client_v2::SetUpSubcommandLogLevel(app);
 
   std::string input;
 
@@ -1168,34 +1170,36 @@ int InteractiveCli() {
 }
 int main(int argc, char* argv[]) {
   FLAGS_minloglevel = google::GLOG_INFO;
-  FLAGS_logtostdout = true;
+  FLAGS_logtostdout = false;
   FLAGS_colorlogtostdout = true;
   FLAGS_logbufsecs = 0;
   google::InitGoogleLogging(argv[0]);
 
-  if (argc > 1) {
-    if (dingodb::Helper::IsExistPath(argv[1])) {
-      google::SetCommandLineOption("flagfile", argv[1]);
-    } else {
-      FLAGS_method = argv[1];
-    }
-  }
-
-  google::ParseCommandLineFlags(&argc, &argv, true);
-
   // if (argc > 1) {
-  //   CLI::App app{"This is dingo_client"};
-  //   app.get_formatter()->column_width(40);  // 列的宽度
-
-  //   client::SetUp_Subcommand_RaftAddPeer(app);
-  //   client::SetUp_Subcommand_GetRegionMap(app);
-  //   client::SetUp_Subcommand_LogLevel(app);
-  //   CLI11_PARSE(app, argc, argv);
-  // } else {
-  //   InteractiveCli();
+  //   if (dingodb::Helper::IsExistPath(argv[1])) {
+  //     google::SetCommandLineOption("flagfile", argv[1]);
+  //   } else {
+  //     FLAGS_method = argv[1];
+  //   }
   // }
 
-  // return 0;
+  // google::ParseCommandLineFlags(&argc, &argv, true);
+
+  if (argc > 1) {
+    CLI::App app{"This is dingo_client_v2"};
+    app.get_formatter()->column_width(40);  // 列的宽度
+
+    client_v2::SetUpSubcommandRaftAddPeer(app);
+    client_v2::SetUpSubcommandGetRegionMap(app);
+    client_v2::SetUpSubcommandLogLevel(app);
+    client_v2::SetUpSubcommandKvGet(app);
+    client_v2::SetUpSubcommandKvPut(app);
+    CLI11_PARSE(app, argc, argv);
+  } else {
+    InteractiveCli();
+  }
+
+  return 0;
   // if (FLAGS_coor_url.empty()) {
   //   DINGO_LOG(ERROR) << "coordinator url is empty, try to use file://./coor_list";
   //   FLAGS_coor_url = "file://./coor_list";
@@ -1253,76 +1257,76 @@ int main(int argc, char* argv[]) {
   // }
   // return 0;
 
-  if (dingodb::FLAGS_show_version || FLAGS_method.empty()) {
-    dingodb::DingoShowVerion();
-    printf("Usage: %s [method] [paramters]\n", argv[0]);                  // NOLINT
-    printf("Example: %s CreateTable --name=test_table_name\n", argv[0]);  // NOLINT
-    exit(-1);
-  }
+  // if (dingodb::FLAGS_show_version || FLAGS_method.empty()) {
+  //   dingodb::DingoShowVerion();
+  //   printf("Usage: %s [method] [paramters]\n", argv[0]);                  // NOLINT
+  //   printf("Example: %s CreateTable --name=test_table_name\n", argv[0]);  // NOLINT
+  //   exit(-1);
+  // }
 
-  if (FLAGS_coor_url.empty()) {
-    DINGO_LOG(ERROR) << "coordinator url is empty, try to use file://./coor_list";
-    FLAGS_coor_url = "file://./coor_list";
-  }
+  // if (FLAGS_coor_url.empty()) {
+  //   DINGO_LOG(ERROR) << "coordinator url is empty, try to use file://./coor_list";
+  //   FLAGS_coor_url = "file://./coor_list";
+  // }
 
-  if (!FLAGS_url.empty()) {
-    FLAGS_coor_url = FLAGS_url;
-  }
+  // if (!FLAGS_url.empty()) {
+  //   FLAGS_coor_url = FLAGS_url;
+  // }
 
-  auto ctx = std::make_shared<client::Context>();
-  if (!FLAGS_coor_url.empty()) {
-    std::string path = FLAGS_coor_url;
-    path = path.replace(path.find("file://"), 7, "");
-    auto addrs = client::Helper::GetAddrsFromFile(path);
-    if (addrs.empty()) {
-      DINGO_LOG(ERROR) << "url not find addr, path=" << path;
-      return -1;
-    }
+  // auto ctx = std::make_shared<client::Context>();
+  // if (!FLAGS_coor_url.empty()) {
+  //   std::string path = FLAGS_coor_url;
+  //   path = path.replace(path.find("file://"), 7, "");
+  //   auto addrs = client::Helper::GetAddrsFromFile(path);
+  //   if (addrs.empty()) {
+  //     DINGO_LOG(ERROR) << "url not find addr, path=" << path;
+  //     return -1;
+  //   }
 
-    auto coordinator_interaction = std::make_shared<client::ServerInteraction>();
-    if (!coordinator_interaction->Init(addrs)) {
-      DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << FLAGS_coor_url;
-      return -1;
-    }
+  //   auto coordinator_interaction = std::make_shared<client::ServerInteraction>();
+  //   if (!coordinator_interaction->Init(addrs)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << FLAGS_coor_url;
+  //     return -1;
+  //   }
 
-    client::InteractionManager::GetInstance().SetCoorinatorInteraction(coordinator_interaction);
-  }
+  //   client::InteractionManager::GetInstance().SetCoorinatorInteraction(coordinator_interaction);
+  // }
 
-  // this is for legacy coordinator_client use, will be removed in the future
-  if (!FLAGS_coor_url.empty()) {
-    coordinator_interaction = std::make_shared<dingodb::CoordinatorInteraction>();
-    if (!coordinator_interaction->InitByNameService(
-            FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeCoordinator)) {
-      DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << FLAGS_coor_url;
-      return -1;
-    }
+  // // this is for legacy coordinator_client use, will be removed in the future
+  // if (!FLAGS_coor_url.empty()) {
+  //   coordinator_interaction = std::make_shared<dingodb::CoordinatorInteraction>();
+  //   if (!coordinator_interaction->InitByNameService(
+  //           FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeCoordinator)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << FLAGS_coor_url;
+  //     return -1;
+  //   }
 
-    coordinator_interaction_meta = std::make_shared<dingodb::CoordinatorInteraction>();
-    if (!coordinator_interaction_meta->InitByNameService(
-            FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeMeta)) {
-      DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_meta, please check parameter --url=" << FLAGS_coor_url;
-      return -1;
-    }
+  //   coordinator_interaction_meta = std::make_shared<dingodb::CoordinatorInteraction>();
+  //   if (!coordinator_interaction_meta->InitByNameService(
+  //           FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeMeta)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_meta, please check parameter --url=" <<
+  //     FLAGS_coor_url; return -1;
+  //   }
 
-    coordinator_interaction_version = std::make_shared<dingodb::CoordinatorInteraction>();
-    if (!coordinator_interaction_version->InitByNameService(
-            FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeVersion)) {
-      DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_version, please check parameter --url="
-                       << FLAGS_coor_url;
-      return -1;
-    }
-  }
+  //   coordinator_interaction_version = std::make_shared<dingodb::CoordinatorInteraction>();
+  //   if (!coordinator_interaction_version->InitByNameService(
+  //           FLAGS_coor_url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeVersion)) {
+  //     DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_version, please check parameter --url="
+  //                      << FLAGS_coor_url;
+  //     return -1;
+  //   }
+  // }
 
-  if (!FLAGS_addr.empty()) {
-    FLAGS_coordinator_addr = FLAGS_addr;
-  }
+  // if (!FLAGS_addr.empty()) {
+  //   FLAGS_coordinator_addr = FLAGS_addr;
+  // }
 
-  global_ctx = ctx;
+  // global_ctx = ctx;
 
-  auto ret = CoordinatorSender();
-  if (ret < 0) {
-    Sender(ctx, FLAGS_method, FLAGS_round_num);
-  }
+  // auto ret = CoordinatorSender();
+  // if (ret < 0) {
+  //   Sender(ctx, FLAGS_method, FLAGS_round_num);
+  // }
 
-  return 0;
+  // return 0;
 }
