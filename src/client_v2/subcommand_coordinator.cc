@@ -10,6 +10,41 @@
 
 namespace client_v2 {
 
+bool GetBrpcChannel(const std::string& location, brpc::Channel& channel) {
+  braft::PeerId node;
+  if (node.parse(location) != 0) {
+    DINGO_LOG(ERROR) << "Fail to parse node peer_id " << location;
+    return false;
+  }
+
+  // rpc for leader access
+  if (channel.Init(node.addr, nullptr) != 0) {
+    DINGO_LOG(ERROR) << "Fail to init channel to " << location;
+    bthread_usleep(FLAGS_timeout_ms * 1000L);
+    return false;
+  }
+
+  return true;
+}
+
+std::string EncodeUint64(int64_t value) {
+  std::string str(reinterpret_cast<const char*>(&value), sizeof(value));
+  std::reverse(str.begin(), str.end());
+  return str;
+}
+
+int64_t DecodeUint64(const std::string& str) {
+  if (str.size() != sizeof(int64_t)) {
+    throw std::invalid_argument("Invalid string size for int64_t decoding");
+  }
+
+  std::string reversed_str(str.rbegin(), str.rend());
+  int64_t value;
+  std::memcpy(&value, reversed_str.data(), sizeof(value));
+  return value;
+}
+
+
 void SetUpSubcommandGetRegionMap(CLI::App &app) {
   auto opt = std::make_shared<GetRegionMapCommandOptions>();
   auto coor = app.add_subcommand("GetRegionMap", "Get region map")->group("Coordinator Manager Commands");

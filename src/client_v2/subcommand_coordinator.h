@@ -19,6 +19,77 @@
 #define DINGODB_SUBCOMMAND_COORDINATOR_H_
 namespace client_v2 {
 
+//void SendDebug();
+std::string EncodeUint64(int64_t value);
+int64_t DecodeUint64(const std::string& str);
+bool GetBrpcChannel(const std::string& location, brpc::Channel& channel);
+
+// struct Context {
+//   std::unique_ptr<Context> Clone() const {
+//     auto clone_ctx = std::make_unique<Context>();
+
+//     clone_ctx->table_name = table_name;
+//     clone_ctx->partition_num = partition_num;
+//     clone_ctx->req_num = req_num;
+//     clone_ctx->table_id = table_id;
+//     clone_ctx->index_id = index_id;
+//     clone_ctx->region_id = region_id;
+
+//     clone_ctx->thread_num = thread_num;
+//     clone_ctx->thread_no = thread_no;
+//     clone_ctx->prefix = prefix;
+
+//     clone_ctx->dimension = dimension;
+//     clone_ctx->start_id = start_id;
+//     clone_ctx->count = count;
+//     clone_ctx->step_count = step_count;
+//     clone_ctx->with_scalar = with_scalar;
+//     clone_ctx->with_table = with_table;
+
+//     clone_ctx->db_path = db_path;
+//     clone_ctx->offset = offset;
+//     clone_ctx->limit = limit;
+
+//     clone_ctx->key = key;
+
+//     clone_ctx->show_vector = show_vector;
+
+//     return clone_ctx;
+//   }
+
+//   std::string table_name;
+//   int partition_num;
+//   int req_num;
+
+//   int64_t table_id;
+//   int64_t index_id;
+//   int64_t region_id;
+
+//   int32_t thread_num;
+//   int32_t thread_no;
+//   std::string prefix;
+
+//   uint32_t dimension;
+//   uint32_t start_id;
+//   uint32_t count;
+//   uint32_t step_count;
+
+//   bool with_scalar;
+//   bool with_table;
+
+//   std::string db_path;
+//   int32_t offset;
+//   int32_t limit;
+
+//   std::string key;
+
+//   bool show_vector;
+
+//   std::string csv_data;
+//   std::string json_data;
+// };
+
+
 static std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_;
 static std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_meta_;
 static std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version_;

@@ -16,12 +16,11 @@
 #define DINGODB_STORE_TOOL_DUMP_H_
 
 #include "client_v2/store_client_function.h"
-
 namespace client_v2 {
 
 void DumpDb(std::shared_ptr<Context> ctx);
 void WhichRegion(std::shared_ptr<Context> ctx);
 
-}  // namespace client
+}  // namespace client_v2
 
 #endif  // DINGODB_STORE_TOOL_DUMP_H_
