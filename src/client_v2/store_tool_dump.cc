@@ -34,7 +34,7 @@
 #include "coprocessor/utils.h"
 #include "fmt/core.h"
 #include "fmt/format.h"
-#include "gflags/gflags.h"
+//#include "gflags/gflags.h"
 #include "proto/common.pb.h"
 #include "proto/meta.pb.h"
 #include "rocksdb/db.h"
@@ -45,14 +45,14 @@
 #include "serial/utils.h"
 #include "vector/codec.h"
 
-DEFINE_bool(show_lock, false, "show lock info");
-DEFINE_bool(show_write, false, "show write info");
-DEFINE_bool(show_last_data, true, "show visible last data");
-DEFINE_bool(show_all_data, false, "show all version data");
+// DEFINE_bool(show_lock, false, "show lock info");
+// DEFINE_bool(show_write, false, "show write info");
+// DEFINE_bool(show_last_data, true, "show visible last data");
+// DEFINE_bool(show_all_data, false, "show all version data");
 
-DEFINE_int32(print_column_width, 24, "print column width");
+// DEFINE_int32(print_column_width, 24, "print column width");
 
-DECLARE_bool(show_pretty);
+// DECLARE_bool(show_pretty);
 
 namespace client_v2 {
 
@@ -157,7 +157,7 @@ class RocksDBOperator {
 using RocksDBOperatorPtr = std::shared_ptr<RocksDBOperator>;
 
 void PrintValues(const dingodb::pb::meta::TableDefinition& table_definition, const std::vector<std::any>& values,
-                 int64_t ts = 0) {  // NOLINT
+                 int32_t print_column_width, int64_t ts = 0) {  // NOLINT
   std::vector<std::string> str_values;
   if (ts > 0) {
     str_values.push_back(std::to_string(ts));
@@ -166,8 +166,8 @@ void PrintValues(const dingodb::pb::meta::TableDefinition& table_definition, con
     const auto& column_definition = table_definition.columns().at(i);
 
     std::string str = dingodb::Helper::ConvertColumnValueToString(column_definition, values[i]);
-    if (str.size() >= FLAGS_print_column_width) {
-      str = str.substr(0, FLAGS_print_column_width - 3) + "...";
+    if (str.size() >= print_column_width) {
+      str = str.substr(0, print_column_width - 3) + "...";
     }
     str_values.push_back(str);
   }
@@ -176,7 +176,7 @@ void PrintValues(const dingodb::pb::meta::TableDefinition& table_definition, con
 }
 
 void PrintValuesPretty(const dingodb::pb::meta::TableDefinition& table_definition, const std::vector<std::any>& values,
-                       int64_t ts = 0) {  // NOLINT
+                       int32_t print_column_width, int64_t ts = 0) {  // NOLINT
 
   std::cout << "****************************************************************" << std::endl;
   if (ts > 0) {
@@ -186,8 +186,8 @@ void PrintValuesPretty(const dingodb::pb::meta::TableDefinition& table_definitio
     const auto& column_definition = table_definition.columns().at(i);
 
     std::string str = dingodb::Helper::ConvertColumnValueToString(column_definition, values[i]);
-    if (str.size() >= FLAGS_print_column_width) {
-      str = str.substr(0, FLAGS_print_column_width - 3) + "...";
+    if (str.size() >= print_column_width) {
+      str = str.substr(0, print_column_width - 3) + "...";
     }
 
     std::cout << fmt::format("{:>32}: {:<64}", column_definition.name(), str) << std::endl;
@@ -252,10 +252,10 @@ void DumpExcutorRaw(std::shared_ptr<Context> ctx, dingodb::pb::meta::TableDefini
       LOG(INFO) << fmt::format("Decode failed, ret: {} record size: {}", ret, record.size());
     }
 
-    if (FLAGS_show_pretty) {
-      PrintValuesPretty(table_definition, record);
+    if (ctx->show_pretty) {
+      PrintValuesPretty(table_definition, record, ctx->print_column_width);
     } else {
-      PrintValues(table_definition, record);
+      PrintValues(table_definition, record, ctx->print_column_width);
     }
   };
 
@@ -355,7 +355,7 @@ void DumpExcutorTxn(std::shared_ptr<Context> ctx, dingodb::pb::meta::TableDefini
       return;
     }
 
-    if (FLAGS_show_last_data) {
+    if (ctx->show_last_data) {
       // filter not last ts data
       auto it = last_datas.find(origin_key);
       if (it != last_datas.end()) {
@@ -371,10 +371,10 @@ void DumpExcutorTxn(std::shared_ptr<Context> ctx, dingodb::pb::meta::TableDefini
     if (ret != 0) {
       LOG(INFO) << fmt::format("Decode failed, ret: {} record size: {}", ret, record.size());
     }
-    if (FLAGS_show_pretty) {
-      PrintValuesPretty(table_definition, record, ts);
+    if (ctx->show_pretty) {
+      PrintValuesPretty(table_definition, record, ctx->print_column_width, ts);
     } else {
-      PrintValues(table_definition, record, ts);
+      PrintValues(table_definition, record, ctx->print_column_width, ts);
     }
   };
 
@@ -383,17 +383,17 @@ void DumpExcutorTxn(std::shared_ptr<Context> ctx, dingodb::pb::meta::TableDefini
                            dingodb::Helper::StringToHex(end_key))
             << std::endl;
 
-  if (FLAGS_show_lock) {
+  if (ctx->show_lock) {
     std::cout << fmt::format("=================== lock ====================") << std::endl;
     db->Scan(dingodb::Constant::kTxnLockCF, begin_key, end_key, ctx->offset, ctx->limit, lock_handler);
   }
 
-  if (FLAGS_show_write) {
+  if (ctx->show_write) {
     std::cout << fmt::format("=================== write ====================") << std::endl;
     db->Scan(dingodb::Constant::kTxnWriteCF, begin_key, end_key, ctx->offset, ctx->limit, write_handler);
   }
 
-  if (FLAGS_show_all_data || FLAGS_show_last_data) {
+  if (ctx->show_all_data || ctx->show_last_data) {
     std::cout << fmt::format("=================== data ====================") << std::endl;
     db->Scan(dingodb::Constant::kTxnDataCF, begin_key, end_key, ctx->offset, ctx->limit, data_handler);
   }
@@ -714,4 +714,4 @@ void WhichRegion(std::shared_ptr<Context> ctx) {
   }
 }
 
-}  // namespace client
+}  // namespace client_v2

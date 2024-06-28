@@ -1,3 +1,18 @@
+
+// Copyright (c) 2023 dingodb.com, Inc. All Rights Reserved
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "subcommand_coordinator.h"
 
 #include <iostream>
@@ -10,7 +25,7 @@
 
 namespace client_v2 {
 
-bool GetBrpcChannel(const std::string& location, brpc::Channel& channel) {
+bool GetBrpcChannel(const std::string &location, brpc::Channel &channel) {
   braft::PeerId node;
   if (node.parse(location) != 0) {
     DINGO_LOG(ERROR) << "Fail to parse node peer_id " << location;
@@ -20,7 +35,7 @@ bool GetBrpcChannel(const std::string& location, brpc::Channel& channel) {
   // rpc for leader access
   if (channel.Init(node.addr, nullptr) != 0) {
     DINGO_LOG(ERROR) << "Fail to init channel to " << location;
-    bthread_usleep(FLAGS_timeout_ms * 1000L);
+    bthread_usleep(timeout_ms * 1000L);
     return false;
   }
 
@@ -28,12 +43,12 @@ bool GetBrpcChannel(const std::string& location, brpc::Channel& channel) {
 }
 
 std::string EncodeUint64(int64_t value) {
-  std::string str(reinterpret_cast<const char*>(&value), sizeof(value));
+  std::string str(reinterpret_cast<const char *>(&value), sizeof(value));
   std::reverse(str.begin(), str.end());
   return str;
 }
 
-int64_t DecodeUint64(const std::string& str) {
+int64_t DecodeUint64(const std::string &str) {
   if (str.size() != sizeof(int64_t)) {
     throw std::invalid_argument("Invalid string size for int64_t decoding");
   }
@@ -43,7 +58,6 @@ int64_t DecodeUint64(const std::string& str) {
   std::memcpy(&value, reversed_str.data(), sizeof(value));
   return value;
 }
-
 
 void SetUpSubcommandGetRegionMap(CLI::App &app) {
   auto opt = std::make_shared<GetRegionMapCommandOptions>();
@@ -62,7 +76,7 @@ void RunSubcommandGetRegionMap(GetRegionMapCommandOptions const &opt) {
 
   request.set_epoch(1);
 
-  auto status = coordinator_interaction_->SendRequest("GetRegionMap", request, response);
+  auto status = coordinator_interaction->SendRequest("GetRegionMap", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
 
   // for (const auto& region : response.regionmap().regions()) {
@@ -171,7 +185,7 @@ void RunSubcommandRaftAddPeer(RaftAddPeerCommandOptions const &opt) {
   }
 
   brpc::Controller cntl;
-  cntl.set_timeout_ms(FLAGS_timeout_ms);
+  cntl.set_timeout_ms(timeout_ms);
 
   if (opt.coordinator_addr.empty()) {
     DINGO_LOG(ERROR) << "Please set --addr or --coordinator_addr";
@@ -226,7 +240,7 @@ void RunSubcommandRaftRemovePeer(RaftRemovePeerOption const &opt) {
   }
 
   brpc::Controller cntl;
-  cntl.set_timeout_ms(FLAGS_timeout_ms);
+  cntl.set_timeout_ms(timeout_ms);
 
   brpc::Channel channel;
   if (!GetBrpcChannel(opt.coordinator_addr, channel)) {
@@ -237,7 +251,7 @@ void RunSubcommandRaftRemovePeer(RaftRemovePeerOption const &opt) {
   stub.RaftControl(&cntl, &request, &response, nullptr);
   if (cntl.Failed()) {
     DINGO_LOG(WARNING) << "Fail to send request to : " << cntl.ErrorText();
-    // bthread_usleep(FLAGS_timeout_ms * 1000L);
+    // bthread_usleep(timeout_ms * 1000L);
   }
   std::cout << "response:" << response.DebugString();
   DINGO_LOG(INFO) << response.DebugString();
@@ -279,7 +293,7 @@ void RunSubcommandRaftTansferLeader(RaftTansferLeaderOption const &opt) {
 
   brpc::Controller cntl;
   // yjddebug todo need to optimize
-  cntl.set_timeout_ms(FLAGS_timeout_ms);
+  cntl.set_timeout_ms(timeout_ms);
 
   brpc::Channel channel;
   if (!GetBrpcChannel(opt.coordinator_addr, channel)) {
@@ -290,7 +304,7 @@ void RunSubcommandRaftTansferLeader(RaftTansferLeaderOption const &opt) {
   stub.RaftControl(&cntl, &request, &response, nullptr);
   if (cntl.Failed()) {
     DINGO_LOG(WARNING) << "Fail to send request to : " << cntl.ErrorText();
-    // bthread_usleep(FLAGS_timeout_ms * 1000L);
+    // bthread_usleep(timeout_ms * 1000L);
   }
   std::cout << "response:" << response.DebugString();
   DINGO_LOG(INFO) << response.DebugString();
@@ -330,7 +344,7 @@ void RunSubcommandRaftSnapshot(RaftSnapshotOption const &opt) {
 
   brpc::Controller cntl;
   // yjddebug todo need to optimize
-  cntl.set_timeout_ms(FLAGS_timeout_ms);
+  cntl.set_timeout_ms(timeout_ms);
 
   brpc::Channel channel;
   if (!GetBrpcChannel(opt.coordinator_addr, channel)) {
@@ -341,7 +355,7 @@ void RunSubcommandRaftSnapshot(RaftSnapshotOption const &opt) {
   stub.RaftControl(&cntl, &request, &response, nullptr);
   if (cntl.Failed()) {
     DINGO_LOG(WARNING) << "Fail to send request to : " << cntl.ErrorText();
-    // bthread_usleep(FLAGS_timeout_ms * 1000L);
+    // bthread_usleep(timeout_ms * 1000L);
   }
   std::cout << "response:" << response.DebugString();
   DINGO_LOG(INFO) << "Received response"
@@ -400,7 +414,7 @@ void RunSubcommandRaftResetPeer(RaftResetPeerOption const &opt) {
 
   brpc::Controller cntl;
   // yjddebug todo need to optimize
-  cntl.set_timeout_ms(FLAGS_timeout_ms);
+  cntl.set_timeout_ms(timeout_ms);
 
   brpc::Channel channel;
   if (!GetBrpcChannel(opt.coordinator_addr, channel)) {
@@ -411,7 +425,7 @@ void RunSubcommandRaftResetPeer(RaftResetPeerOption const &opt) {
   stub.RaftControl(&cntl, &request, &response, nullptr);
   if (cntl.Failed()) {
     DINGO_LOG(WARNING) << "Fail to send request to : " << cntl.ErrorText();
-    // bthread_usleep(FLAGS_timeout_ms * 1000L);
+    // bthread_usleep(timeout_ms * 1000L);
   }
   std::cout << "response:" << response.DebugString();
   DINGO_LOG(INFO) << "Received response"
@@ -441,7 +455,7 @@ void RunSubcommandGetNodeInfo(GetNodeInfoOption const &opt) {
   request.set_cluster_id(0);
 
   brpc::Controller cntl;
-  cntl.set_timeout_ms(FLAGS_timeout_ms);
+  cntl.set_timeout_ms(timeout_ms);
 
   brpc::Channel channel;
   if (!GetBrpcChannel(opt.coordinator_addr, channel)) {
@@ -451,7 +465,7 @@ void RunSubcommandGetNodeInfo(GetNodeInfoOption const &opt) {
   stub.GetNodeInfo(&cntl, &request, &response, nullptr);
   if (cntl.Failed()) {
     DINGO_LOG(WARNING) << "Fail to send request to : " << cntl.ErrorText();
-    // bthread_usleep(FLAGS_timeout_ms * 1000L);
+    // bthread_usleep(timeout_ms * 1000L);
   }
 
   DINGO_LOG(INFO) << "Received response"
@@ -500,7 +514,7 @@ void RunSubcommandChangeLogLevel(GetChangeLogLevelOption const &opt) {
   log_detail->set_stop_logging_if_full_disk(false);
 
   brpc::Controller cntl;
-  cntl.set_timeout_ms(FLAGS_timeout_ms);
+  cntl.set_timeout_ms(timeout_ms);
 
   brpc::Channel channel;
   if (!GetBrpcChannel(opt.coordinator_addr, channel)) {
@@ -538,7 +552,7 @@ void RunSubcommandHello(HelloOption const &opt) {
   request.set_hello(0);
   request.set_get_memory_info(true);
 
-  auto status = coordinator_interaction_->SendRequest("Hello", request, response);
+  auto status = coordinator_interaction->SendRequest("Hello", request, response);
   DINGO_LOG(INFO) << "SendRequest status: " << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -555,9 +569,9 @@ void RunSubcommandStoreHeartbeat(StoreHeartbeatOption const &opt) {
     DINGO_LOG(ERROR) << "Set Up failed coor_url=" << opt.coor_url;
     exit(-1);
   }
-  SendStoreHearbeatV2(coordinator_interaction_, 100);
-  SendStoreHearbeatV2(coordinator_interaction_, 200);
-  SendStoreHearbeatV2(coordinator_interaction_, 300);
+  SendStoreHearbeatV2(coordinator_interaction, 100);
+  SendStoreHearbeatV2(coordinator_interaction, 200);
+  SendStoreHearbeatV2(coordinator_interaction, 300);
 }
 void SendStoreHearbeatV2(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction, int64_t store_id) {
   dingodb::pb::coordinator::StoreHeartbeatRequest request;
@@ -599,7 +613,7 @@ void RunSubcommandCreateStore(CreateStoreOption const &opt) {
 
   request.set_cluster_id(1);
 
-  auto status = coordinator_interaction_->SendRequest("CreateStore", request, response);
+  auto status = coordinator_interaction->SendRequest("CreateStore", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -629,7 +643,7 @@ void RunSubcommandDeleteStore(DeleteStoreOption const &opt) {
   auto *keyring = request.mutable_keyring();
   keyring->assign(opt.keyring);
 
-  auto status = coordinator_interaction_->SendRequest("DeleteStore", request, response);
+  auto status = coordinator_interaction->SendRequest("DeleteStore", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -668,7 +682,7 @@ void RunSubcommandUpdateStore(UpdateStoreOption const &opt) {
     return;
   }
 
-  auto status = coordinator_interaction_->SendRequest("UpdateStore", request, response);
+  auto status = coordinator_interaction->SendRequest("UpdateStore", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -700,7 +714,7 @@ void RunSubcommandCreateExecutor(CreateExecutorOption const &opt) {
   request.mutable_executor()->mutable_executor_user()->set_keyring(opt.keyring);
   request.mutable_executor()->mutable_server_location()->set_host(opt.host);
   request.mutable_executor()->mutable_server_location()->set_port(opt.port);
-  auto status = coordinator_interaction_->SendRequest("CreateExecutor", request, response);
+  auto status = coordinator_interaction->SendRequest("CreateExecutor", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -730,7 +744,7 @@ void RunSubcommandDeleteExecutor(DeleteExecutorOption const &opt) {
   request.mutable_executor()->mutable_executor_user()->set_user(opt.user);
   request.mutable_executor()->mutable_executor_user()->set_keyring(opt.keyring);
 
-  auto status = coordinator_interaction_->SendRequest("CreateExecutor", request, response);
+  auto status = coordinator_interaction->SendRequest("CreateExecutor", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -758,7 +772,7 @@ void RunSubcommandCreateExecutorUser(CreateExecutorUserOption const &opt) {
   request.mutable_executor_user()->set_user(opt.user);
   request.mutable_executor_user()->set_keyring(opt.keyring);
 
-  auto status = coordinator_interaction_->SendRequest("CreateExecutorUser", request, response);
+  auto status = coordinator_interaction->SendRequest("CreateExecutorUser", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -790,7 +804,7 @@ void RunSubcommandUpdateExecutorUser(UpdateExecutorUserOption const &opt) {
   request.mutable_executor_user()->set_keyring(opt.keyring);
   request.mutable_executor_user_update()->set_keyring(opt.new_keyring);
 
-  auto status = coordinator_interaction_->SendRequest("UpdateExecutorUser", request, response);
+  auto status = coordinator_interaction->SendRequest("UpdateExecutorUser", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -818,7 +832,7 @@ void RunSubcommandDeleteExecutorUser(DeleteExecutorUserOption const &opt) {
   request.mutable_executor_user()->set_user(opt.user);
   request.mutable_executor_user()->set_keyring(opt.keyring);
 
-  auto status = coordinator_interaction_->SendRequest("DeleteExecutorUser", request, response);
+  auto status = coordinator_interaction->SendRequest("DeleteExecutorUser", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -839,7 +853,7 @@ void RunSubcommandGetExecutorUserMap(GetExecutorUserMapOption const &opt) {
   dingodb::pb::coordinator::GetExecutorUserMapResponse response;
 
   request.set_cluster_id(1);
-  auto status = coordinator_interaction_->SendRequest("GetExecutorUserMap", request, response);
+  auto status = coordinator_interaction->SendRequest("GetExecutorUserMap", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -878,7 +892,7 @@ void RunSubcommandExecutorHeartbeat(ExecutorHeartbeatOption const &opt) {
   auto *user = executor->mutable_executor_user();
   user->set_user(opt.user);
   user->set_keyring(opt.keyring);
-  auto status = coordinator_interaction_->SendRequest("ExecutorHeartbeat", request, response);
+  auto status = coordinator_interaction->SendRequest("ExecutorHeartbeat", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -902,7 +916,7 @@ void RunSubcommandGetStoreMap(GetStoreMapOption const &opt) {
 
   request.set_epoch(1);
   request.add_filter_store_types(static_cast<dingodb::pb::common::StoreType>(opt.filter_store_type));
-  auto status = coordinator_interaction_->SendRequest("GetStoreMap", request, response);
+  auto status = coordinator_interaction->SendRequest("GetStoreMap", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
 
   DINGO_LOG(INFO) << response.DebugString();
@@ -967,7 +981,7 @@ void RunSubcommandGetExecutorMap(GetExecutorMapOption const &opt) {
 
   request.set_epoch(1);
 
-  auto status = coordinator_interaction_->SendRequest("GetExecutorMap", request, response);
+  auto status = coordinator_interaction->SendRequest("GetExecutorMap", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -989,7 +1003,7 @@ void RunSubcommandGetDeleteRegionMap(GetDeleteRegionMapOption const &opt) {
 
   request.set_epoch(1);
 
-  auto status = coordinator_interaction_->SendRequest("GetDeletedRegionMap", request, response);
+  auto status = coordinator_interaction->SendRequest("GetDeletedRegionMap", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
 
   for (const auto &region : response.regionmap().regions()) {
@@ -1022,7 +1036,7 @@ void RunSubcommandAddDeleteRegionMap(AddDeleteRegionMapOption const &opt) {
 
   request.set_region_id(std::stol(opt.id));
   request.set_force(opt.is_force);
-  auto status = coordinator_interaction_->SendRequest("AddDeletedRegionMap", request, response);
+  auto status = coordinator_interaction->SendRequest("AddDeletedRegionMap", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << "response=" << response.DebugString();
 }
@@ -1044,7 +1058,7 @@ void RunSubcommandCleanDeleteRegionMap(CleanDeleteRegionMapOption const &opt) {
   dingodb::pb::coordinator::CleanDeletedRegionMapResponse response;
 
   request.set_region_id(std::stol(opt.id));
-  auto status = coordinator_interaction_->SendRequest("CleanDeletedRegionMap", request, response);
+  auto status = coordinator_interaction->SendRequest("CleanDeletedRegionMap", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << "response=" << response.DebugString();
 }
@@ -1066,7 +1080,7 @@ void RunSubcommandGetRegionCount(GetRegionCountOption const &opt) {
 
   request.set_epoch(1);
 
-  auto status = coordinator_interaction_->SendRequest("GetRegionCount", request, response);
+  auto status = coordinator_interaction->SendRequest("GetRegionCount", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
 
   DINGO_LOG(INFO) << " region_count=" << response.region_count();
@@ -1093,7 +1107,7 @@ void RunSubcommandGetCoordinatorMap(GetCoordinatorMapOption const &opt) {
 
   request.set_get_coordinator_map(opt.get_coordinator_map);
 
-  auto status = coordinator_interaction_->SendRequest("GetCoordinatorMap", request, response);
+  auto status = coordinator_interaction->SendRequest("GetCoordinatorMap", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -1119,7 +1133,7 @@ void RunSubcommandCreateRegionId(CreateRegionIdOption const &opt) {
 
   request.set_count(opt.count);
 
-  auto status = coordinator_interaction_->SendRequest("CreateRegionId", request, response);
+  auto status = coordinator_interaction->SendRequest("CreateRegionId", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << "response=" << response.DebugString();
 }
@@ -1141,7 +1155,7 @@ void RunSubcommandQueryRegion(QueryRegionOption const &opt) {
   dingodb::pb::coordinator::QueryRegionResponse response;
 
   request.set_region_id(std::stol(opt.id));
-  auto status = coordinator_interaction_->SendRequest("QueryRegion", request, response);
+  auto status = coordinator_interaction->SendRequest("QueryRegion", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 
@@ -1423,7 +1437,7 @@ void RunSubcommandCreateRegion(CreateRegionOption const &opt) {
 
   DINGO_LOG(INFO) << "Create region request: " << request.DebugString();
 
-  auto status2 = coordinator_interaction_->SendRequest("CreateRegion", request, response);
+  auto status2 = coordinator_interaction->SendRequest("CreateRegion", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status2;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -1449,7 +1463,7 @@ void RunSubcommandCreateRegionForSplit(CreateRegionForSplitOption const &opt) {
 
   query_request.set_region_id(opt.id);
 
-  auto status = coordinator_interaction_->SendRequest("QueryRegion", query_request, query_response);
+  auto status = coordinator_interaction->SendRequest("QueryRegion", query_request, query_response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << query_response.DebugString();
 
@@ -1485,7 +1499,7 @@ void RunSubcommandCreateRegionForSplit(CreateRegionForSplitOption const &opt) {
 
   DINGO_LOG(INFO) << "Create region request: " << request.DebugString();
 
-  auto status2 = coordinator_interaction_->SendRequest("CreateRegion", request, response);
+  auto status2 = coordinator_interaction->SendRequest("CreateRegion", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status2;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -1509,7 +1523,7 @@ void RunSubcommandDropRegion(DropRegionOption const &opt) {
 
   request.set_region_id(opt.id);
 
-  auto status = coordinator_interaction_->SendRequest("DropRegion", request, response);
+  auto status = coordinator_interaction->SendRequest("DropRegion", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -1533,7 +1547,7 @@ void RunSubcommandDropRegionPermanently(DropRegionPermanentlyOption const &opt) 
   dingodb::pb::coordinator::DropRegionPermanentlyResponse response;
 
   request.set_region_id(std::stoll(opt.id));
-  auto status = coordinator_interaction_->SendRequest("DropRegionPermanently", request, response);
+  auto status = coordinator_interaction->SendRequest("DropRegionPermanently", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -1586,7 +1600,7 @@ void RunSubcommandSplitRegion(SplitRegionOption const &opt) {
     dingodb::pb::coordinator::QueryRegionResponse query_response;
     query_request.set_region_id(opt.split_from_id);
 
-    auto status = coordinator_interaction_->SendRequest("QueryRegion", query_request, query_response);
+    auto status = coordinator_interaction->SendRequest("QueryRegion", query_request, query_response);
     DINGO_LOG(INFO) << "SendRequest status=" << status;
     DINGO_LOG(INFO) << query_response.DebugString();
 
@@ -1647,7 +1661,7 @@ void RunSubcommandSplitRegion(SplitRegionOption const &opt) {
                   << ", store_create_region=" << opt.store_create_region << ", with watershed key ["
                   << dingodb::Helper::StringToHex(request.split_request().split_watershed_key()) << "] will be sent";
 
-  auto status = coordinator_interaction_->SendRequest("SplitRegion", request, response);
+  auto status = coordinator_interaction->SendRequest("SplitRegion", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 
@@ -1701,7 +1715,7 @@ void RunSubcommandMergeRegion(MergeRegionOption const &opt) {
     return;
   }
 
-  auto status = coordinator_interaction_->SendRequest("MergeRegion", request, response);
+  auto status = coordinator_interaction->SendRequest("MergeRegion", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -1730,7 +1744,7 @@ void RunSubcommandAddPeerRegion(AddPeerRegionOption const &opt) {
 
   request.set_epoch(0);
 
-  auto status = coordinator_interaction_->SendRequest("GetStoreMap", request, response);
+  auto status = coordinator_interaction->SendRequest("GetStoreMap", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
 
   dingodb::pb::common::Peer new_peer;
@@ -1755,7 +1769,7 @@ void RunSubcommandAddPeerRegion(AddPeerRegionOption const &opt) {
 
   query_request.set_region_id(opt.region_id);
 
-  auto status2 = coordinator_interaction_->SendRequest("QueryRegion", query_request, query_response);
+  auto status2 = coordinator_interaction->SendRequest("QueryRegion", query_request, query_response);
   DINGO_LOG(INFO) << "SendRequest status=" << status2;
 
   if (query_response.region().definition().peers_size() == 0) {
@@ -1782,7 +1796,7 @@ void RunSubcommandAddPeerRegion(AddPeerRegionOption const &opt) {
 
   DINGO_LOG(INFO) << "new_definition: " << new_definition->DebugString();
 
-  auto status3 = coordinator_interaction_->SendRequest("ChangePeerRegion", change_peer_request, change_peer_response);
+  auto status3 = coordinator_interaction->SendRequest("ChangePeerRegion", change_peer_request, change_peer_response);
   DINGO_LOG(INFO) << "SendRequest status=" << status3;
   DINGO_LOG(INFO) << change_peer_response.DebugString();
 
@@ -1818,7 +1832,7 @@ void RunSubcommandRemovePeerRegion(RemovePeerRegionOption const &opt) {
 
   query_request.set_region_id(opt.region_id);
 
-  auto status = coordinator_interaction_->SendRequest("QueryRegion", query_request, query_response);
+  auto status = coordinator_interaction->SendRequest("QueryRegion", query_request, query_response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
 
   if (query_response.region().definition().peers_size() == 0) {
@@ -1856,7 +1870,7 @@ void RunSubcommandRemovePeerRegion(RemovePeerRegionOption const &opt) {
 
   DINGO_LOG(INFO) << "new_definition: " << new_definition->DebugString();
 
-  auto status2 = coordinator_interaction_->SendRequest("ChangePeerRegion", change_peer_request, change_peer_response);
+  auto status2 = coordinator_interaction->SendRequest("ChangePeerRegion", change_peer_request, change_peer_response);
   DINGO_LOG(INFO) << "SendRequest status=" << status2;
   DINGO_LOG(INFO) << change_peer_response.DebugString();
 
@@ -1893,7 +1907,7 @@ void RunSubcommandTransferLeaderRegion(TransferLeaderRegionOption const &opt) {
 
   query_request.set_region_id(opt.region_id);
 
-  auto status = coordinator_interaction_->SendRequest("QueryRegion", query_request, query_response);
+  auto status = coordinator_interaction->SendRequest("QueryRegion", query_request, query_response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
 
   if (query_response.region().definition().peers_size() == 0) {
@@ -1925,7 +1939,7 @@ void RunSubcommandTransferLeaderRegion(TransferLeaderRegionOption const &opt) {
   DINGO_LOG(INFO) << "transfer leader: region_id=" << opt.region_id << ", store_id=" << opt.store_id;
 
   auto status2 =
-      coordinator_interaction_->SendRequest("TransferLeaderRegion", transfer_leader_request, transfer_leader_response);
+      coordinator_interaction->SendRequest("TransferLeaderRegion", transfer_leader_request, transfer_leader_response);
   DINGO_LOG(INFO) << "SendRequest status=" << status2;
   DINGO_LOG(INFO) << transfer_leader_response.DebugString();
 
@@ -1957,7 +1971,7 @@ void RunSubcommandGetOrphanRegion(GetOrphanRegionOption const &opt) {
   dingodb::pb::coordinator::GetOrphanRegionResponse response;
   request.set_store_id(opt.store_id);
 
-  auto status = coordinator_interaction_->SendRequest("GetOrphanRegion", request, response);
+  auto status = coordinator_interaction->SendRequest("GetOrphanRegion", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
 
   DINGO_LOG(INFO) << "orphan_regions_size=" << response.orphan_regions_size();
@@ -2014,7 +2028,7 @@ void RunSubcommandScanRegions(ScanRegionsOptions const &opt) {
 
   DINGO_LOG(INFO) << "ScanRegions request: " << request.DebugString();
 
-  auto status = coordinator_interaction_->SendRequest("ScanRegions", request, response);
+  auto status = coordinator_interaction->SendRequest("ScanRegions", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -2036,7 +2050,7 @@ void RunSubcommandGetRangeRegionMap(GetRangeRegionMapOption const &opt) {
 
   DINGO_LOG(INFO) << "GetRangeRegionMap request: " << request.DebugString();
 
-  auto status = coordinator_interaction_->SendRequest("GetRangeRegionMap", request, response);
+  auto status = coordinator_interaction->SendRequest("GetRangeRegionMap", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 
@@ -2062,7 +2076,7 @@ void RunSubcommandGetStoreOperation(GetStoreOperationOption const &opt) {
   dingodb::pb::coordinator::GetStoreOperationRequest request;
   dingodb::pb::coordinator::GetStoreOperationResponse response;
   request.set_store_id(opt.store_id);
-  auto status = coordinator_interaction_->SendRequest("GetStoreOperation", request, response);
+  auto status = coordinator_interaction->SendRequest("GetStoreOperation", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
 
   for (const auto &it : response.store_operations()) {
@@ -2105,7 +2119,7 @@ void RunSubcommandGetTaskList(GetTaskListOptions const &opt) {
   request.set_archive_limit(opt.limit);
   request.set_archive_start_id(opt.start_id);
 
-  auto status = coordinator_interaction_->SendRequest("GetTaskList", request, response);
+  auto status = coordinator_interaction->SendRequest("GetTaskList", request, response);
   DINGO_LOG_IF(INFO, !status.ok()) << "SendRequest status=" << status;
   DINGO_LOG_IF(INFO, response.error().errcode() != 0) << "error: " << response.error().ShortDebugString();
 
@@ -2136,7 +2150,7 @@ void RunSubcommandCleanTaskList(CleanTaskListOption const &opt) {
 
   request.set_task_list_id(opt.id);
 
-  auto status = coordinator_interaction_->SendRequest("CleanTaskList", request, response);
+  auto status = coordinator_interaction->SendRequest("CleanTaskList", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -2176,7 +2190,7 @@ void RunSubcommandUpdateRegionCmdStatus(UpdateRegionCmdStatusOptions const &opt)
   request.mutable_error()->set_errcode(static_cast<dingodb::pb::error::Errno>(opt.errcode));
   request.mutable_error()->set_errmsg(opt.errmsg);
 
-  auto status = coordinator_interaction_->SendRequest("UpdateRegionCmdStatus", request, response);
+  auto status = coordinator_interaction->SendRequest("UpdateRegionCmdStatus", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -2200,7 +2214,7 @@ void RunSubcommandCleanStoreOperation(CleanStoreOperationOptions const &opt) {
 
   request.set_store_id(opt.id);
 
-  auto status = coordinator_interaction_->SendRequest("CleanStoreOperation", request, response);
+  auto status = coordinator_interaction->SendRequest("CleanStoreOperation", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -2232,7 +2246,7 @@ void RunSubcommandAddStoreOperation(AddStoreOperationOptions const &opt) {
   region_cmd->set_region_cmd_type(::dingodb::pb::coordinator::RegionCmdType::CMD_NONE);
   region_cmd->set_create_timestamp(butil::gettimeofday_ms());
 
-  auto status = coordinator_interaction_->SendRequest("AddStoreOperation", request, response);
+  auto status = coordinator_interaction->SendRequest("AddStoreOperation", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -2261,7 +2275,7 @@ void RunSubcommandRemoveStoreOperation(RemoveStoreOperationOptions const &opt) {
 
   request.set_store_id(opt.id);
   request.set_region_cmd_id(opt.region_cmd_id);
-  auto status = coordinator_interaction_->SendRequest("RemoveStoreOperation", request, response);
+  auto status = coordinator_interaction->SendRequest("RemoveStoreOperation", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -2296,7 +2310,7 @@ void RunSubcommandGetRegionCmd(GetRegionCmdOptions const &opt) {
   request.set_start_region_cmd_id(opt.start_region_cmd_id);
   request.set_end_region_cmd_id(opt.end_region_cmd_id);
 
-  auto status = coordinator_interaction_->SendRequest("GetRegionCmd", request, response);
+  auto status = coordinator_interaction->SendRequest("GetRegionCmd", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -2324,7 +2338,7 @@ void RunSubcommandGetStoreMetrics(GetStoreMetricsOptions const &opt) {
 
   request.set_store_id(opt.id);
   request.set_region_id(opt.region_id);
-  auto status = coordinator_interaction_->SendRequest("GetStoreMetrics", request, response);
+  auto status = coordinator_interaction->SendRequest("GetStoreMetrics", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   for (const auto &it : response.store_metrics()) {
     DINGO_LOG(INFO) << it.store_own_metrics().DebugString();
@@ -2362,7 +2376,7 @@ void RunSubcommandDeleteStoreMetrics(DeleteStoreMetricsOptions const &opt) {
   dingodb::pb::coordinator::DeleteStoreMetricsResponse response;
 
   request.set_store_id(opt.id);
-  auto status = coordinator_interaction_->SendRequest("DeleteStoreMetrics", request, response);
+  auto status = coordinator_interaction->SendRequest("DeleteStoreMetrics", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -2386,7 +2400,7 @@ void RunSubcommandGetRegionMetrics(GetRegionMetricsOptions const &opt) {
   dingodb::pb::coordinator::GetRegionMetricsResponse response;
 
   request.set_region_id(opt.id);
-  auto status = coordinator_interaction_->SendRequest("GetRegionMetrics", request, response);
+  auto status = coordinator_interaction->SendRequest("GetRegionMetrics", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   for (const auto &it : response.region_metrics()) {
     DINGO_LOG(INFO) << it.DebugString();
@@ -2412,7 +2426,7 @@ void RunSubcommandDeleteRegionMetrics(DeleteRegionMetricsOptions const &opt) {
   dingodb::pb::coordinator::DeleteRegionMetricsResponse response;
 
   request.set_region_id(opt.id);
-  auto status = coordinator_interaction_->SendRequest("DeleteRegionMetrics", request, response);
+  auto status = coordinator_interaction->SendRequest("DeleteRegionMetrics", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -2461,7 +2475,7 @@ void RunSubcommandUpdateGCSafePoint(UpdateGCSafePointOptions const &opt) {
 
   DINGO_LOG(INFO) << "UpdateGCSafePoint request: " << request.DebugString();
 
-  auto status = coordinator_interaction_->SendRequest("UpdateGCSafePoint", request, response);
+  auto status = coordinator_interaction->SendRequest("UpdateGCSafePoint", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -2491,7 +2505,7 @@ void RunSubcommandBalanceLeader(BalanceLeaderOptions const &opt) {
   request.set_dryrun(opt.dryrun);
   request.set_store_type(dingodb::pb::common::StoreType(opt.store_type));
 
-  auto status = coordinator_interaction_->SendRequest("BalanceLeader", request, response);
+  auto status = coordinator_interaction->SendRequest("BalanceLeader", request, response);
   if (!status.ok()) {
     DINGO_LOG(INFO) << "SendRequest status=" << status;
   } else {
@@ -2531,7 +2545,7 @@ void RunSubcommandUpdateForceReadOnly(UpdateForceReadOnlyOptions const &opt) {
   DINGO_LOG(INFO) << "Try to set_force_read_only to " << opt.force_read_only
                   << ", reason: " << opt.force_read_only_reason;
 
-  auto status = coordinator_interaction_->SendRequest("ConfigCoordinator", request, response);
+  auto status = coordinator_interaction->SendRequest("ConfigCoordinator", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }

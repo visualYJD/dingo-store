@@ -1,3 +1,18 @@
+
+// Copyright (c) 2023 dingodb.com, Inc. All Rights Reserved
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <iostream>
 #include <string>
 
@@ -642,6 +657,16 @@ void SetUpSubcommandTxnGet(CLI::App& app) {
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
       ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "key is hex")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--start_ts", opt->start_ts, "Request parameter start_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--resolve_locks", opt->resolve_locks, "Request parameter resolve_locks")
+      ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnGet(*opt); });
 }
 
@@ -652,7 +677,7 @@ void RunSubcommandTxnGet(TxnGetOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnGet(opt.region_id);
+  client_v2::SendTxnGet(opt.region_id, opt.rc, opt.key, opt.key_is_hex, opt.start_ts, opt.resolve_locks);
 }
 
 void SetUpSubcommandTxnScan(CLI::App& app) {
@@ -662,6 +687,36 @@ void SetUpSubcommandTxnScan(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--start_key", opt->start_key, "Request parameter start_key")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--end_key", opt->end_key, "Request parameter start_key")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--start_ts", opt->start_ts, "Request parameter start_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--limit", opt->limit, "Request parameter limit")
+      ->default_val(50)
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--is_reverse", opt->is_reverse, "Request parameter is_reverse ")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--key_only", opt->key_only, "Request parameter key_only")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--resolve_locks", opt->resolve_locks, "Request parameter resolve_locks")
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--with_start", opt->with_start, "Request parameter with_start")
+      ->default_val(true)
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--with_end", opt->with_end, "Request parameter with_end")
+      ->default_val(true)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnScan(*opt); });
 }
@@ -673,7 +728,8 @@ void RunSubcommandTxnScan(TxnScanOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnScan(opt.region_id);
+  client_v2::SendTxnScan(opt.region_id, opt.rc, opt.start_key, opt.end_key, opt.limit, opt.start_ts, opt.is_reverse,
+                         opt.key_only, opt.resolve_locks, opt.key_is_hex, opt.with_start, opt.with_end);
 }
 
 void SetUpSubcommandTxnPessimisticLock(CLI::App& app) {
@@ -683,6 +739,32 @@ void SetUpSubcommandTxnPessimisticLock(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--primary_lock", opt->primary_lock, "Request parameter primary_lock")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--start_ts", opt->start_ts, "Request parameter start_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--lock_ttl", opt->lock_ttl, "Request parameter lock_ttl")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--for_update_ts", opt->for_update_ts, "Request parameter for_update_ts ")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--mutation_op", opt->mutation_op, "Request parameter mutation_op must be one of [lock]")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--value", opt->value, "Request parameter with_start")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--value_is_hex", opt->value_is_hex, "Request parameter value_is_hex")
+      ->default_val(false)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnPessimisticLock(*opt); });
 }
@@ -694,7 +776,8 @@ void RunSubcommandTxnPessimisticLock(TxnPessimisticLockOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnPessimisticLock(opt.region_id);
+  client_v2::SendTxnPessimisticLock(opt.region_id, opt.rc, opt.primary_lock, opt.key_is_hex, opt.start_ts, opt.lock_ttl,
+                                    opt.for_update_ts, opt.mutation_op, opt.key, opt.value, opt.value_is_hex);
 }
 
 void SetUpSubcommandTxnPessimisticRollback(CLI::App& app) {
@@ -704,6 +787,17 @@ void SetUpSubcommandTxnPessimisticRollback(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--start_ts", opt->start_ts, "Request parameter start_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--for_update_ts", opt->for_update_ts, "Request parameter for_update_ts ")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnPessimisticRollback(*opt); });
 }
@@ -715,7 +809,8 @@ void RunSubcommandTxnPessimisticRollback(TxnPessimisticRollbackOptions const& op
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnPessimisticRollback(opt.region_id);
+  client_v2::SendTxnPessimisticRollback(opt.region_id, opt.rc, opt.start_ts, opt.for_update_ts, opt.key,
+                                        opt.key_is_hex);
 }
 
 void SetUpSubcommandTxnPrewrite(CLI::App& app) {
@@ -726,6 +821,52 @@ void SetUpSubcommandTxnPrewrite(CLI::App& app) {
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
       ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--primary_lock", opt->primary_lock, "Request parameter primary_lock")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--start_ts", opt->start_ts, "Request parameter start_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--lock_ttl", opt->lock_ttl, "Request parameter lock_ttl")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--txn_size", opt->txn_size, "Request parameter txn_size")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--try_one_pc", opt->try_one_pc, "Request parameter try_one_pc")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--max_commit_ts", opt->max_commit_ts, "Request parameter max_commit_ts ")
+      ->default_val(0)
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--mutation_op", opt->mutation_op,
+                   "Request parameter mutation_op must be one of [put, delete, insert]")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
+  coor->add_option("--key2", opt->key2, "Request parameter key2")->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--value", opt->value, "Request parameter value2")->group("Coordinator Manager Commands");
+  coor->add_option("--value2", opt->value2, "Request parameter value2")->group("Coordinator Manager Commands");
+  coor->add_flag("--value_is_hex", opt->value_is_hex, "Request parameter value_is_hex")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--extra_data", opt->extra_data, "Request parameter extra_data ")
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--for_update_ts", opt->for_update_ts, "Request parameter for_update_ts ")
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--vector_id", opt->vector_id, "Request parameter vector_id ")
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--document_id", opt->document_id, "Request parameter document_id ")
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--document_text1", opt->document_text1, "Request parameter document_text1 ")
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--document_text2", opt->document_text2, "Request parameter document_text2 ")
+      ->group("Coordinator Manager Commands");
+
   coor->callback([opt]() { RunSubcommandTxnPrewrite(*opt); });
 }
 
@@ -736,7 +877,10 @@ void RunSubcommandTxnPrewrite(TxnPrewriteOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnPrewrite(opt.region_id);
+  client_v2::SendTxnPrewrite(opt.region_id, opt.rc, opt.primary_lock, opt.key_is_hex, opt.start_ts, opt.lock_ttl,
+                             opt.txn_size, opt.try_one_pc, opt.max_commit_ts, opt.mutation_op, opt.key, opt.key2,
+                             opt.value, opt.value2, opt.value_is_hex, opt.extra_data, opt.for_update_ts, opt.vector_id,
+                             opt.document_id, opt.document_text1, opt.document_text2);
 }
 
 void SetUpSubcommandTxnCommit(CLI::App& app) {
@@ -746,6 +890,18 @@ void SetUpSubcommandTxnCommit(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--start_ts", opt->start_ts, "Request parameter start_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--commit_ts", opt->commit_ts, "Request parameter commit_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
+  coor->add_option("--key2", opt->key2, "Request parameter key2")->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnCommit(*opt); });
 }
@@ -757,7 +913,7 @@ void RunSubcommandTxnCommit(TxnCommitOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnPrewrite(opt.region_id);
+  client_v2::SendTxnCommit(opt.region_id, opt.rc, opt.start_ts, opt.commit_ts, opt.key, opt.key2, opt.key_is_hex);
 }
 
 void SetUpSubcommandTxnCheckTxnStatus(CLI::App& app) {
@@ -767,6 +923,22 @@ void SetUpSubcommandTxnCheckTxnStatus(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--primary_key", opt->primary_key, "Request parameter primary_key")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--lock_ts", opt->lock_ts, "Request parameter lock_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--caller_start_ts", opt->caller_start_ts, "Request parameter caller_start_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--current_ts", opt->current_ts, "Request parameter current_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnCheckTxnStatus(*opt); });
 }
@@ -778,7 +950,8 @@ void RunSubcommandTxnCheckTxnStatus(TxnCheckTxnStatusOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnCheckTxnStatus(opt.region_id);
+  client_v2::SendTxnCheckTxnStatus(opt.region_id, opt.rc, opt.primary_key, opt.key_is_hex, opt.lock_ts,
+                                   opt.caller_start_ts, opt.current_ts);
 }
 
 void SetUpSubcommandTxnResolveLock(CLI::App& app) {
@@ -788,6 +961,19 @@ void SetUpSubcommandTxnResolveLock(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--start_ts", opt->start_ts, "Request parameter start_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--commit_ts", opt->commit_ts, "Request parameter commit_ts, if commmit=0, will do rollback")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--key", opt->key,
+                   "Request parameter key, if key is empty, will do resolve lock for all keys of this transaction")
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnResolveLock(*opt); });
 }
@@ -799,7 +985,7 @@ void RunSubcommandTxnResolveLock(TxnResolveLockOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnResolveLock(opt.region_id);
+  client_v2::SendTxnResolveLock(opt.region_id, opt.rc, opt.start_ts, opt.commit_ts, opt.key, opt.key_is_hex);
 }
 
 void SetUpSubcommandTxnBatchGet(CLI::App& app) {
@@ -810,6 +996,18 @@ void SetUpSubcommandTxnBatchGet(CLI::App& app) {
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
       ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--start_ts", opt->start_ts, "Request parameter start_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--resolve_locks", opt->resolve_locks, "Request parameter resolve_locks")
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
+  coor->add_option("--key2", opt->key2, "Request parameter key2")->required()->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+
   coor->callback([opt]() { RunSubcommandTxnBatchGet(*opt); });
 }
 
@@ -820,7 +1018,7 @@ void RunSubcommandTxnBatchGet(TxnBatchGetOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnBatchGet(opt.region_id);
+  client_v2::SendTxnBatchGet(opt.region_id, opt.rc, opt.key, opt.key2, opt.key_is_hex, opt.start_ts, opt.resolve_locks);
 }
 
 void SetUpSubcommandTxnBatchRollback(CLI::App& app) {
@@ -830,6 +1028,15 @@ void SetUpSubcommandTxnBatchRollback(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--start_ts", opt->start_ts, "Request parameter start_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
+  coor->add_option("--key2", opt->key2, "Request parameter key2")->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnBatchRollback(*opt); });
 }
@@ -841,7 +1048,7 @@ void RunSubcommandTxnBatchRollback(TxnBatchRollbackOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnBatchRollback(opt.region_id);
+  client_v2::SendTxnBatchRollback(opt.region_id, opt.rc, opt.key, opt.key2, opt.key_is_hex, opt.start_ts);
 }
 
 void SetUpSubcommandTxnScanLock(CLI::App& app) {
@@ -851,6 +1058,22 @@ void SetUpSubcommandTxnScanLock(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--max_ts", opt->max_ts, "Request parameter max_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--start_key", opt->start_key, "Request parameter start_key")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--end_key", opt->end_key, "Request parameter end_key")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--limit", opt->limit, "Request parameter limit")
+      ->default_val(50)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnScanLock(*opt); });
 }
@@ -862,7 +1085,7 @@ void RunSubcommandTxnScanLock(TxnScanLockOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnScanLock(opt.region_id);
+  client_v2::SendTxnScanLock(opt.region_id, opt.rc, opt.max_ts, opt.start_key, opt.end_key, opt.key_is_hex, opt.limit);
 }
 
 void SetUpSubcommandTxnHeartBeat(CLI::App& app) {
@@ -872,6 +1095,19 @@ void SetUpSubcommandTxnHeartBeat(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--primary_lock", opt->primary_lock, "Request parameter primary_lock")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--start_ts", opt->start_ts, "Request parameter start_ts")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--advise_lock_ttl", opt->advise_lock_ttl, "Request parameter advise_lock_ttl")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnHeartBeat(*opt); });
 }
@@ -883,7 +1119,8 @@ void RunSubcommandTxnHeartBeat(TxnHeartBeatOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnHeartBeat(opt.region_id);
+  client_v2::SendTxnHeartBeat(opt.region_id, opt.rc, opt.primary_lock, opt.start_ts, opt.advise_lock_ttl,
+                              opt.key_is_hex);
 }
 
 void SetUpSubcommandTxnGC(CLI::App& app) {
@@ -892,6 +1129,10 @@ void SetUpSubcommandTxnGC(CLI::App& app) {
   coor->add_option("--coor_url", opt->coor_url, "Coordinator url, default:file://./coor_list")
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--safe_point_ts", opt->safe_point_ts, "Request parameter safe_point_ts")
       ->required()
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnGC(*opt); });
@@ -904,7 +1145,7 @@ void RunSubcommandTxnGC(TxnGCOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnGc(opt.region_id);
+  client_v2::SendTxnGc(opt.region_id, opt.rc, opt.safe_point_ts);
 }
 
 void SetUpSubcommandTxnDeleteRange(CLI::App& app) {
@@ -914,6 +1155,16 @@ void SetUpSubcommandTxnDeleteRange(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--rc", opt->rc, "read commit")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_option("--start_key", opt->start_key, "Request parameter start_key")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--end_key", opt->end_key, "Request parameter end_key")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--key_is_hex", opt->key_is_hex, "Request parameter key_is_hex")
+      ->default_val(false)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandTxnDeleteRange(*opt); });
 }
@@ -925,7 +1176,7 @@ void RunSubcommandTxnDeleteRange(TxnDeleteRangeOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnDeleteRange(opt.region_id);
+  client_v2::SendTxnDeleteRange(opt.region_id, opt.rc, opt.start_key, opt.end_key, opt.key_is_hex);
 }
 
 void SetUpSubcommandTxnDump(CLI::App& app) {
@@ -946,7 +1197,7 @@ void RunSubcommandTxnDump(TxnDumpOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendTxnDump(opt.region_id);
+  client_v2::SendTxnDump(opt.region_id, opt.rc, opt.start_key, opt.end_key, opt.key_is_hex, opt.start_ts, opt.end_ts);
 }
 
 void SetUpSubcommandDocumentDelete(CLI::App& app) {
@@ -984,6 +1235,18 @@ void SetUpSubcommandDocumentAdd(CLI::App& app) {
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
       ->group("Coordinator Manager Commands");
+  coor->add_option("--document_id", opt->document_id, "Request parameter document_id")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--document_text1", opt->document_text1, "Request parameter document_text1")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--document_text2", opt->document_text2, "Request parameter document_text2")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--is_update", opt->is_update, "Request parameter is_update")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandDocumentAdd(*opt); });
 }
 
@@ -994,7 +1257,7 @@ void RunSubcommandDocumentAdd(DocumentAddOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendDocumentAdd(opt.region_id);
+  client_v2::SendDocumentAdd(opt.region_id, opt.document_id, opt.document_text1, opt.document_text2, opt.is_update);
 }
 
 void SetUpSubcommandDocumentSearch(CLI::App& app) {
@@ -1004,6 +1267,13 @@ void SetUpSubcommandDocumentSearch(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--region_id", opt->region_id, "Request parameter region id")
       ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--query_string", opt->query_string, "Request parameter query_string")
+      ->required()
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--topn", opt->topn, "Request parameter topn")->required()->group("Coordinator Manager Commands");
+  coor->add_flag("--without_scalar", opt->without_scalar, "Request parameter without_scalar")
+      ->default_val(false)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandDocumentSearch(*opt); });
 }
@@ -1015,7 +1285,7 @@ void RunSubcommandDocumentSearch(DocumentSearchOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendDocumentSearch(opt.region_id);
+  client_v2::SendDocumentSearch(opt.region_id, opt.query_string, opt.topn, opt.without_scalar);
 }
 
 void SetUpSubcommandDocumentBatchQuery(CLI::App& app) {
@@ -1029,6 +1299,10 @@ void SetUpSubcommandDocumentBatchQuery(CLI::App& app) {
   coor->add_option("--document_id", opt->document_id, "Request parameter document id")
       ->required()
       ->group("Coordinator Manager Commands");
+  coor->add_flag("--without_scalar", opt->without_scalar, "Request parameter without_scalar")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--key", opt->key, "Request parameter key")->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandDocumentBatchQuery(*opt); });
 }
 
@@ -1039,7 +1313,8 @@ void RunSubcommandDocumentBatchQuery(DocumentBatchQueryOptions const& opt) {
     std::cout << "Set Up failed region_id=" << opt.region_id;
     exit(-1);
   }
-  client_v2::SendDocumentBatchQuery(opt.region_id, {static_cast<int64_t>(opt.document_id)});
+  client_v2::SendDocumentBatchQuery(opt.region_id, {static_cast<int64_t>(opt.document_id)}, opt.without_scalar,
+                                    opt.key);
 }
 
 void SetUpSubcommandDocumentScanQuery(CLI::App& app) {
@@ -1651,6 +1926,16 @@ void SetUpSubcommandVectorAdd(CLI::App& app) {
       ->group("Coordinator Manager Commands");
   coor->add_option("--csv_data", opt->csv_data, "Request parameter csv_data")->group("Coordinator Manager Commands");
   coor->add_option("--json_data", opt->json_data, "Request parameter json_data")->group("Coordinator Manager Commands");
+
+  coor->add_option("--scalar_filter_key", opt->scalar_filter_key, "Request parameter scalar_filter_key")
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--scalar_filter_value", opt->scalar_filter_value, "Request parameter scalar_filter_value")
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--scalar_filter_key2", opt->scalar_filter_key2, "Request parameter scalar_filter_key2")
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--scalar_filter_value2", opt->scalar_filter_value2, "Request parameter scalar_filter_value2")
+      ->group("Coordinator Manager Commands");
+
   coor->callback([opt]() { RunSubcommandVectorAdd(*opt); });
 }
 
@@ -1672,6 +1957,11 @@ void RunSubcommandVectorAdd(VectorAddOptions const& opt) {
   ctx->with_table = !opt.without_table;
   ctx->csv_data = opt.csv_data;
   ctx->json_data = opt.json_data;
+
+  ctx->scalar_filter_key = opt.scalar_filter_key;
+  ctx->scalar_filter_value = opt.scalar_filter_value;
+  ctx->scalar_filter_key2 = opt.scalar_filter_key2;
+  ctx->scalar_filter_value2 = opt.scalar_filter_value2;
   if (ctx->table_id > 0) {
     client_v2::SendVectorAddRetry(ctx);
   } else {
@@ -1771,6 +2061,10 @@ void SetUpSubcommandVectorAddBatch(CLI::App& app) {
   coor->add_option("--vector_index_add_cost_file", opt->vector_index_add_cost_file, "exec batch vector add. cost time")
       ->default_str("./cost.txt")
       ->group("Coordinator Manager Commands");
+  coor->add_flag("--without_scalar", opt->without_scalar, "Request parameter without_scalar")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+
   coor->callback([opt]() { RunSubcommandVectorAddBatch(*opt); });
 }
 
@@ -1783,7 +2077,7 @@ void RunSubcommandVectorAddBatch(VectorAddBatchOptions const& opt) {
   }
 
   client_v2::SendVectorAddBatch(opt.region_id, opt.dimension, opt.count, opt.step_count, opt.start_id,
-                                opt.vector_index_add_cost_file);
+                                opt.vector_index_add_cost_file, opt.without_scalar);
 }
 
 void SetUpSubcommandVectorAddBatchDebug(CLI::App& app) {
@@ -1807,6 +2101,9 @@ void SetUpSubcommandVectorAddBatchDebug(CLI::App& app) {
   coor->add_option("--vector_index_add_cost_file", opt->vector_index_add_cost_file, "exec batch vector add. cost time")
       ->default_str("./cost.txt")
       ->group("Coordinator Manager Commands");
+  coor->add_flag("--without_scalar", opt->without_scalar, "Request parameter without_scalar")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandVectorAddBatchDebug(*opt); });
 }
 
@@ -1819,7 +2116,7 @@ void RunSubcommandVectorAddBatchDebug(VectorAddBatchDebugOptions const& opt) {
   }
 
   client_v2::SendVectorAddBatchDebug(opt.region_id, opt.dimension, opt.count, opt.step_count, opt.start_id,
-                                     opt.vector_index_add_cost_file);
+                                     opt.vector_index_add_cost_file, opt.without_scalar);
 }
 
 void SetUpSubcommandVectorCalcDistance(CLI::App& app) {
@@ -2169,8 +2466,25 @@ void SetUpSubcommandDumpDb(CLI::App& app) {
   coor->add_option("--offset", opt->offset, "Number of offset, must greatern than 0")
       ->group("Coordinator Manager Commands");
   coor->add_option("--limit", opt->limit, "Number of limit")->default_val(50)->group("Coordinator Manager Commands");
-  coor->add_flag("--limit", opt->show_vector, "show vector data")
+  coor->add_flag("--show_vector", opt->show_vector, "show vector data")
       ->default_val(false)
+      ->group("Coordinator Manager Commands");
+
+  coor->add_flag("--show_lock", opt->show_lock, "show lock")->default_val(false)->group("Coordinator Manager Commands");
+  coor->add_flag("--show_write", opt->show_write, "show write")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--show_last_data", opt->show_last_data, "show last data")
+      ->default_val(true)
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--show_all_data", opt->show_all_data, "show all data")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_flag("--show_pretty", opt->show_pretty, "show  pretty")
+      ->default_val(false)
+      ->group("Coordinator Manager Commands");
+  coor->add_option("--print_column_width", opt->print_column_width, "print column width")
+      ->default_val(24)
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandDumpDb(*opt); });
 }
@@ -2187,6 +2501,12 @@ void RunSubcommandDumpDb(DumpDbOptions const& opt) {
   ctx->offset = opt.offset;
   ctx->limit = opt.limit;
   ctx->show_vector = opt.show_vector;
+  ctx->show_lock = opt.show_lock;
+  ctx->show_write = opt.show_write;
+  ctx->show_last_data = opt.show_last_data;
+  ctx->show_all_data = opt.show_all_data;
+  ctx->show_pretty = opt.show_pretty;
+  ctx->print_column_width = opt.print_column_width;
   if (ctx->table_id == 0 && ctx->index_id == 0) {
     DINGO_LOG(ERROR) << "Param table_id|index_id is error.";
     return;

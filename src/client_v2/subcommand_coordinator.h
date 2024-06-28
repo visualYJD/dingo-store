@@ -1,3 +1,18 @@
+
+// Copyright (c) 2023 dingodb.com, Inc. All Rights Reserved
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -10,7 +25,6 @@
 #include "client_v2/cli11.h"
 #include "client_v2/client_helper.h"
 #include "client_v2/client_interation.h"
-#include "client_v2/coordinator_client_function.h"
 #include "client_v2/store_client_function.h"
 #include "coordinator/coordinator_interaction.h"
 #include "proto/coordinator.pb.h"
@@ -19,80 +33,14 @@
 #define DINGODB_SUBCOMMAND_COORDINATOR_H_
 namespace client_v2 {
 
-//void SendDebug();
+// void SendDebug();
 std::string EncodeUint64(int64_t value);
-int64_t DecodeUint64(const std::string& str);
-bool GetBrpcChannel(const std::string& location, brpc::Channel& channel);
+int64_t DecodeUint64(const std::string &str);
+bool GetBrpcChannel(const std::string &location, brpc::Channel &channel);
 
-// struct Context {
-//   std::unique_ptr<Context> Clone() const {
-//     auto clone_ctx = std::make_unique<Context>();
-
-//     clone_ctx->table_name = table_name;
-//     clone_ctx->partition_num = partition_num;
-//     clone_ctx->req_num = req_num;
-//     clone_ctx->table_id = table_id;
-//     clone_ctx->index_id = index_id;
-//     clone_ctx->region_id = region_id;
-
-//     clone_ctx->thread_num = thread_num;
-//     clone_ctx->thread_no = thread_no;
-//     clone_ctx->prefix = prefix;
-
-//     clone_ctx->dimension = dimension;
-//     clone_ctx->start_id = start_id;
-//     clone_ctx->count = count;
-//     clone_ctx->step_count = step_count;
-//     clone_ctx->with_scalar = with_scalar;
-//     clone_ctx->with_table = with_table;
-
-//     clone_ctx->db_path = db_path;
-//     clone_ctx->offset = offset;
-//     clone_ctx->limit = limit;
-
-//     clone_ctx->key = key;
-
-//     clone_ctx->show_vector = show_vector;
-
-//     return clone_ctx;
-//   }
-
-//   std::string table_name;
-//   int partition_num;
-//   int req_num;
-
-//   int64_t table_id;
-//   int64_t index_id;
-//   int64_t region_id;
-
-//   int32_t thread_num;
-//   int32_t thread_no;
-//   std::string prefix;
-
-//   uint32_t dimension;
-//   uint32_t start_id;
-//   uint32_t count;
-//   uint32_t step_count;
-
-//   bool with_scalar;
-//   bool with_table;
-
-//   std::string db_path;
-//   int32_t offset;
-//   int32_t limit;
-
-//   std::string key;
-
-//   bool show_vector;
-
-//   std::string csv_data;
-//   std::string json_data;
-// };
-
-
-static std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_;
-static std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_meta_;
-static std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version_;
+static std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction;
+static std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_meta;
+static std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version;
 
 static int SetUp(std::string url) {
   if (url.empty()) {
@@ -110,33 +58,33 @@ static int SetUp(std::string url) {
       return -1;
     }
 
-    auto coordinator_interaction_ = std::make_shared<ServerInteraction>();
-    if (!coordinator_interaction_->Init(addrs)) {
+    auto coordinator_interaction = std::make_shared<ServerInteraction>();
+    if (!coordinator_interaction->Init(addrs)) {
       DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << url;
       return -1;
     }
 
-    InteractionManager::GetInstance().SetCoorinatorInteraction(coordinator_interaction_);
+    InteractionManager::GetInstance().SetCoorinatorInteraction(coordinator_interaction);
   }
 
   // this is for legacy coordinator_client use, will be removed in the future
   if (!url.empty()) {
-    coordinator_interaction_ = std::make_shared<dingodb::CoordinatorInteraction>();
-    if (!coordinator_interaction_->InitByNameService(
+    coordinator_interaction = std::make_shared<dingodb::CoordinatorInteraction>();
+    if (!coordinator_interaction->InitByNameService(
             url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeCoordinator)) {
       DINGO_LOG(ERROR) << "Fail to init coordinator_interaction, please check parameter --url=" << url;
       return -1;
     }
 
-    coordinator_interaction_meta_ = std::make_shared<dingodb::CoordinatorInteraction>();
-    if (!coordinator_interaction_meta_->InitByNameService(
+    coordinator_interaction_meta = std::make_shared<dingodb::CoordinatorInteraction>();
+    if (!coordinator_interaction_meta->InitByNameService(
             url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeMeta)) {
       DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_meta, please check parameter --url=" << url;
       return -1;
     }
 
-    coordinator_interaction_version_ = std::make_shared<dingodb::CoordinatorInteraction>();
-    if (!coordinator_interaction_version_->InitByNameService(
+    coordinator_interaction_version = std::make_shared<dingodb::CoordinatorInteraction>();
+    if (!coordinator_interaction_version->InitByNameService(
             url, dingodb::pb::common::CoordinatorServiceType::ServiceTypeVersion)) {
       DINGO_LOG(ERROR) << "Fail to init coordinator_interaction_version, please check parameter --url=" << url;
       return -1;
@@ -1484,6 +1432,11 @@ void RunSubcommandKvScanReleaseV2(KvScanReleaseV2Options const &opt);
 struct TxnGetOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  std::string key;
+  bool key_is_hex;
+  int64_t start_ts;
+  int64_t resolve_locks;
 };
 void SetUpSubcommandTxnGet(CLI::App &app);
 void RunSubcommandTxnGet(TxnGetOptions const &opt);
@@ -1491,6 +1444,17 @@ void RunSubcommandTxnGet(TxnGetOptions const &opt);
 struct TxnScanOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  std::string start_key;
+  std::string end_key;
+  int64_t limit;
+  int64_t start_ts;
+  bool is_reverse;
+  bool key_only;
+  int64_t resolve_locks;
+  bool key_is_hex;
+  bool with_start;
+  bool with_end;
 };
 void SetUpSubcommandTxnScan(CLI::App &app);
 void RunSubcommandTxnScan(TxnScanOptions const &opt);
@@ -1498,6 +1462,16 @@ void RunSubcommandTxnScan(TxnScanOptions const &opt);
 struct TxnPessimisticLockOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  std::string primary_lock;
+  bool key_is_hex;
+  int64_t start_ts;
+  int64_t lock_ttl;
+  int64_t for_update_ts;
+  std::string mutation_op;
+  std::string key;
+  std::string value;
+  bool value_is_hex;
 };
 void SetUpSubcommandTxnPessimisticLock(CLI::App &app);
 void RunSubcommandTxnPessimisticLock(TxnPessimisticLockOptions const &opt);
@@ -1505,6 +1479,11 @@ void RunSubcommandTxnPessimisticLock(TxnPessimisticLockOptions const &opt);
 struct TxnPessimisticRollbackOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  int64_t start_ts;
+  int64_t for_update_ts;
+  std::string key;
+  bool key_is_hex;
 };
 void SetUpSubcommandTxnPessimisticRollback(CLI::App &app);
 void RunSubcommandTxnPessimisticRollback(TxnPessimisticRollbackOptions const &opt);
@@ -1512,6 +1491,27 @@ void RunSubcommandTxnPessimisticRollback(TxnPessimisticRollbackOptions const &op
 struct TxnPrewriteOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  std::string primary_lock;
+  bool key_is_hex;
+  int64_t start_ts;
+  int64_t lock_ttl;
+  int64_t txn_size;
+  bool try_one_pc;
+  int64_t max_commit_ts;
+  std::string mutation_op;
+  std::string key;
+  std::string key2;
+  std::string value;
+  std::string value2;
+  bool value_is_hex;
+  std::string extra_data;
+  int64_t for_update_ts;
+
+  int64_t vector_id;
+  int64_t document_id;
+  std::string document_text1;
+  std::string document_text2;
 };
 void SetUpSubcommandTxnPrewrite(CLI::App &app);
 void RunSubcommandTxnPrewrite(TxnPrewriteOptions const &opt);
@@ -1519,6 +1519,12 @@ void RunSubcommandTxnPrewrite(TxnPrewriteOptions const &opt);
 struct TxnCommitOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  int64_t start_ts;
+  int64_t commit_ts;
+  std::string key;
+  std::string key2;
+  bool key_is_hex;
 };
 void SetUpSubcommandTxnCommit(CLI::App &app);
 void RunSubcommandTxnCommit(TxnCommitOptions const &opt);
@@ -1526,6 +1532,12 @@ void RunSubcommandTxnCommit(TxnCommitOptions const &opt);
 struct TxnCheckTxnStatusOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  std::string primary_key;
+  bool key_is_hex;
+  int64_t lock_ts;
+  int64_t caller_start_ts;
+  int64_t current_ts;
 };
 void SetUpSubcommandTxnCheckTxnStatus(CLI::App &app);
 void RunSubcommandTxnCheckTxnStatus(TxnCheckTxnStatusOptions const &opt);
@@ -1533,6 +1545,11 @@ void RunSubcommandTxnCheckTxnStatus(TxnCheckTxnStatusOptions const &opt);
 struct TxnResolveLockOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  int64_t start_ts;
+  int64_t commit_ts;
+  std::string key;
+  bool key_is_hex;
 };
 void SetUpSubcommandTxnResolveLock(CLI::App &app);
 void RunSubcommandTxnResolveLock(TxnResolveLockOptions const &opt);
@@ -1540,6 +1557,12 @@ void RunSubcommandTxnResolveLock(TxnResolveLockOptions const &opt);
 struct TxnBatchGetOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  std::string key;
+  std::string key2;
+  bool key_is_hex;
+  int64_t start_ts;
+  int64_t resolve_locks;
 };
 void SetUpSubcommandTxnBatchGet(CLI::App &app);
 void RunSubcommandTxnBatchGet(TxnBatchGetOptions const &opt);
@@ -1547,6 +1570,11 @@ void RunSubcommandTxnBatchGet(TxnBatchGetOptions const &opt);
 struct TxnBatchRollbackOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  std::string key;
+  std::string key2;
+  bool key_is_hex;
+  int64_t start_ts;
 };
 void SetUpSubcommandTxnBatchRollback(CLI::App &app);
 void RunSubcommandTxnBatchRollback(TxnBatchRollbackOptions const &opt);
@@ -1554,6 +1582,12 @@ void RunSubcommandTxnBatchRollback(TxnBatchRollbackOptions const &opt);
 struct TxnScanLockOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  int64_t max_ts;
+  std::string start_key;
+  std::string end_key;
+  bool key_is_hex;
+  int64_t limit;
 };
 void SetUpSubcommandTxnScanLock(CLI::App &app);
 void RunSubcommandTxnScanLock(TxnScanLockOptions const &opt);
@@ -1561,6 +1595,11 @@ void RunSubcommandTxnScanLock(TxnScanLockOptions const &opt);
 struct TxnHeartBeatOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  std::string primary_lock;
+  int64_t start_ts;
+  int64_t advise_lock_ttl;
+  bool key_is_hex;
 };
 void SetUpSubcommandTxnHeartBeat(CLI::App &app);
 void RunSubcommandTxnHeartBeat(TxnHeartBeatOptions const &opt);
@@ -1568,6 +1607,8 @@ void RunSubcommandTxnHeartBeat(TxnHeartBeatOptions const &opt);
 struct TxnGCOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  int64_t safe_point_ts;
 };
 void SetUpSubcommandTxnGC(CLI::App &app);
 void RunSubcommandTxnGC(TxnGCOptions const &opt);
@@ -1575,6 +1616,10 @@ void RunSubcommandTxnGC(TxnGCOptions const &opt);
 struct TxnDeleteRangeOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  std::string start_key;
+  std::string end_key;
+  bool key_is_hex;
 };
 void SetUpSubcommandTxnDeleteRange(CLI::App &app);
 void RunSubcommandTxnDeleteRange(TxnDeleteRangeOptions const &opt);
@@ -1582,6 +1627,12 @@ void RunSubcommandTxnDeleteRange(TxnDeleteRangeOptions const &opt);
 struct TxnDumpOptions {
   std::string coor_url;
   int64_t region_id;
+  bool rc;
+  std::string start_key;
+  std::string end_key;
+  bool key_is_hex;
+  int64_t start_ts;
+  int64_t end_ts;
 };
 void SetUpSubcommandTxnDump(CLI::App &app);
 void RunSubcommandTxnDump(TxnDumpOptions const &opt);
@@ -1599,6 +1650,10 @@ void RunSubcommandDocumentDelete(DocumentDeleteOptions const &opt);
 struct DocumentAddOptions {
   std::string coor_url;
   int64_t region_id;
+  int64_t document_id;
+  std::string document_text1;
+  std::string document_text2;
+  bool is_update;
 };
 void SetUpSubcommandDocumentAdd(CLI::App &app);
 void RunSubcommandDocumentAdd(DocumentAddOptions const &opt);
@@ -1606,6 +1661,9 @@ void RunSubcommandDocumentAdd(DocumentAddOptions const &opt);
 struct DocumentSearchOptions {
   std::string coor_url;
   int64_t region_id;
+  std::string query_string;
+  int32_t topn;
+  bool without_scalar;
 };
 void SetUpSubcommandDocumentSearch(CLI::App &app);
 void RunSubcommandDocumentSearch(DocumentSearchOptions const &opt);
@@ -1614,6 +1672,8 @@ struct DocumentBatchQueryOptions {
   std::string coor_url;
   int64_t region_id;
   int64_t document_id;
+  bool without_scalar;
+  std::string key;
 };
 void SetUpSubcommandDocumentBatchQuery(CLI::App &app);
 void RunSubcommandDocumentBatchQuery(DocumentBatchQueryOptions const &opt);
@@ -1827,6 +1887,11 @@ struct VectorAddOptions {
   bool without_table;
   std::string csv_data;
   std::string json_data;
+
+  std::string scalar_filter_key;
+  std::string scalar_filter_value;
+  std::string scalar_filter_key2;
+  std::string scalar_filter_value2;
 };
 void SetUpSubcommandVectorAdd(CLI::App &app);
 void RunSubcommandVectorAdd(VectorAddOptions const &opt);
@@ -1862,6 +1927,7 @@ struct VectorAddBatchOptions {
   int32_t count;
   int32_t step_count;
   std::string vector_index_add_cost_file;
+  bool without_scalar;
 };
 void SetUpSubcommandVectorAddBatch(CLI::App &app);
 void RunSubcommandVectorAddBatch(VectorAddBatchOptions const &opt);
@@ -1874,6 +1940,7 @@ struct VectorAddBatchDebugOptions {
   int32_t count;
   int32_t step_count;
   std::string vector_index_add_cost_file;
+  bool without_scalar;
 };
 void SetUpSubcommandVectorAddBatchDebug(CLI::App &app);
 void RunSubcommandVectorAddBatchDebug(VectorAddBatchDebugOptions const &opt);
@@ -2010,6 +2077,12 @@ struct DumpDbOptions {
   int32_t offset;
   int64_t limit;
   bool show_vector;
+  bool show_lock;
+  bool show_write;
+  bool show_last_data;
+  bool show_all_data;
+  bool show_pretty;
+  int32_t print_column_width;
 };
 void SetUpSubcommandDumpDb(CLI::App &app);
 void RunSubcommandDumpDb(DumpDbOptions const &opt);

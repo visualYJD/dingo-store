@@ -38,7 +38,7 @@
 #include "common/helper.h"
 #include "common/logging.h"
 #include "fmt/core.h"
-#include "gflags/gflags.h"
+//#include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "proto/document.pb.h"
@@ -51,41 +51,41 @@
 
 const int kBatchSize = 1000;
 
-DECLARE_string(key);
-DECLARE_bool(without_vector);
-DECLARE_bool(without_scalar);
-DECLARE_bool(without_table);
-DECLARE_bool(print_vector_search_delay);
-DECLARE_string(scalar_filter_key);
-DECLARE_string(scalar_filter_value);
-DECLARE_string(scalar_filter_key2);
-DECLARE_string(scalar_filter_value2);
-DECLARE_bool(with_vector_ids);
-DECLARE_bool(with_scalar_pre_filter);
-DECLARE_bool(with_scalar_post_filter);
-DECLARE_bool(with_table_pre_filter);
-DECLARE_int32(vector_ids_count);
-DECLARE_bool(key_is_hex);
-DECLARE_int64(ef_search);
-DECLARE_bool(bruteforce);
-DECLARE_string(vector_data);
-DECLARE_string(csv_data);
-DECLARE_string(csv_output);
-DECLARE_int32(dimension);
-DECLARE_string(scalar_key);
-DECLARE_string(scalar_value);
+// DECLARE_string(key);
+// DECLARE_bool(without_vector);
+// DECLARE_bool(without_scalar);
+// DECLARE_bool(without_table);
+// DECLARE_bool(print_vector_search_delay);
+// DECLARE_string(scalar_filter_key);
+// DECLARE_string(scalar_filter_value);
+// DECLARE_string(scalar_filter_key2);
+// DECLARE_string(scalar_filter_value2);
+// DECLARE_bool(with_vector_ids);
+// DECLARE_bool(with_scalar_pre_filter);
+// DECLARE_bool(with_scalar_post_filter);
+// DECLARE_bool(with_table_pre_filter);
+// DECLARE_int32(vector_ids_count);
+// DECLARE_bool(key_is_hex);
+// DECLARE_int64(ef_search);
+// DECLARE_bool(bruteforce);
+// DECLARE_string(vector_data);
+// DECLARE_string(csv_data);
+// DECLARE_string(csv_output);
+// DECLARE_int32(dimension);
+// DECLARE_string(scalar_key);
+// DECLARE_string(scalar_value);
 
-// for calc distance
-DEFINE_string(vector_data1, "", "vector data 1");
-DEFINE_string(vector_data2, "", "vector data 2");
+// // for calc distance
+// DEFINE_string(vector_data1, "", "vector data 1");
+// DEFINE_string(vector_data2, "", "vector data 2");
 
-// for document
-DECLARE_int64(document_id);
-DEFINE_string(document_text1, "", "document text 1");
-DEFINE_string(document_text2, "", "document text 2");
-DEFINE_string(query_string, "", "document query string");
-DECLARE_int32(topn);
-DEFINE_bool(is_update, false, "is update document");
+// // for document
+// DECLARE_int64(document_id);
+// DEFINE_string(document_text1, "", "document text 1");
+// DEFINE_string(document_text2, "", "document text 2");
+// DEFINE_string(query_string, "", "document query string");
+// DECLARE_int32(topn);
+// DEFINE_bool(is_update, false, "is update document");
 
 namespace client_v2 {
 
@@ -1839,7 +1839,8 @@ void SendVectorGetRegionMetrics(int64_t region_id) {
 
 int SendBatchVectorAdd(int64_t region_id, uint32_t dimension, std::vector<int64_t> vector_ids,
                        std::vector<std::vector<float>> vector_datas, uint32_t vector_datas_offset, bool with_scalar,
-                       bool with_table) {
+                       bool with_table, std::string scalar_filter_key, std::string scalar_filter_value,
+                       std::string scalar_filter_key2, std::string scalar_filter_value2) {
   dingodb::pb::index::VectorAddRequest request;
   dingodb::pb::index::VectorAddResponse response;
 
@@ -1893,7 +1894,7 @@ int SendBatchVectorAdd(int64_t region_id, uint32_t dimension, std::vector<int64_
     }
 
     if (with_scalar) {
-      if (FLAGS_scalar_filter_key.empty() || FLAGS_scalar_filter_value.empty()) {
+      if (scalar_filter_key.empty() || scalar_filter_value.empty()) {
         for (int k = 0; k < 2; ++k) {
           auto* scalar_data = vector_with_id->mutable_scalar_data()->mutable_scalar_data();
           dingodb::pb::common::ScalarValue scalar_value;
@@ -1909,7 +1910,7 @@ int SendBatchVectorAdd(int64_t region_id, uint32_t dimension, std::vector<int64_
           (*scalar_data)[fmt::format("scalar_key{}", k)] = scalar_value;
         }
       } else {
-        if (FLAGS_scalar_filter_key == "enable_scalar_schema" || FLAGS_scalar_filter_key2 == "enable_scalar_schema") {
+        if (scalar_filter_key == "enable_scalar_schema" || scalar_filter_key2 == "enable_scalar_schema") {
           auto* scalar_data = vector_with_id->mutable_scalar_data()->mutable_scalar_data();
           // bool speedup key
           {
@@ -2086,20 +2087,20 @@ int SendBatchVectorAdd(int64_t region_id, uint32_t dimension, std::vector<int64_
           }
 
         } else {
-          if (!FLAGS_scalar_filter_key.empty()) {
+          if (!scalar_filter_key.empty()) {
             auto* scalar_data = vector_with_id->mutable_scalar_data()->mutable_scalar_data();
             dingodb::pb::common::ScalarValue scalar_value;
             scalar_value.set_field_type(::dingodb::pb::common::ScalarFieldType::STRING);
-            scalar_value.add_fields()->set_string_data(FLAGS_scalar_filter_value);
-            (*scalar_data)[FLAGS_scalar_filter_key] = scalar_value;
+            scalar_value.add_fields()->set_string_data(scalar_filter_value);
+            (*scalar_data)[scalar_filter_key] = scalar_value;
           }
 
-          if (!FLAGS_scalar_filter_key2.empty()) {
+          if (!scalar_filter_key2.empty()) {
             auto* scalar_data = vector_with_id->mutable_scalar_data()->mutable_scalar_data();
             dingodb::pb::common::ScalarValue scalar_value;
             scalar_value.set_field_type(::dingodb::pb::common::ScalarFieldType::STRING);
-            scalar_value.add_fields()->set_string_data(FLAGS_scalar_filter_value2);
-            (*scalar_data)[FLAGS_scalar_filter_key2] = scalar_value;
+            scalar_value.add_fields()->set_string_data(scalar_filter_value2);
+            (*scalar_data)[scalar_filter_key2] = scalar_value;
           }
         }
       }
@@ -2134,21 +2135,22 @@ int SendBatchVectorAdd(int64_t region_id, uint32_t dimension, std::vector<int64_
   return response.error().errcode();
 }
 
-void SendDocumentAdd(int64_t region_id) {
+void SendDocumentAdd(int64_t region_id, int64_t document_id, std::string document_text1, std::string document_text2,
+                     bool is_update) {
   dingodb::pb::document::DocumentAddRequest request;
   dingodb::pb::document::DocumentAddResponse response;
 
-  if (FLAGS_document_id <= 0) {
+  if (document_id <= 0) {
     DINGO_LOG(ERROR) << "document_id is invalid";
     return;
   }
 
-  if (FLAGS_document_text1.empty()) {
+  if (document_text1.empty()) {
     DINGO_LOG(ERROR) << "document_text1 is empty";
     return;
   }
 
-  if (FLAGS_document_text2.empty()) {
+  if (document_text2.empty()) {
     DINGO_LOG(ERROR) << "document_text2 is empty";
     return;
   }
@@ -2156,14 +2158,14 @@ void SendDocumentAdd(int64_t region_id) {
   *(request.mutable_context()) = RegionRouter::GetInstance().GenConext(region_id);
 
   auto* document = request.add_documents();
-  document->set_id(FLAGS_document_id);
+  document->set_id(document_id);
   auto* document_data = document->mutable_document()->mutable_document_data();
 
   // col1 text
   {
     dingodb::pb::common::DocumentValue document_value1;
     document_value1.set_field_type(dingodb::pb::common::ScalarFieldType::STRING);
-    document_value1.mutable_field_value()->set_string_data(FLAGS_document_text1);
+    document_value1.mutable_field_value()->set_string_data(document_text1);
     (*document_data)["col1"] = document_value1;
   }
 
@@ -2171,7 +2173,7 @@ void SendDocumentAdd(int64_t region_id) {
   {
     dingodb::pb::common::DocumentValue document_value1;
     document_value1.set_field_type(dingodb::pb::common::ScalarFieldType::INT64);
-    document_value1.mutable_field_value()->set_long_data(FLAGS_document_id);
+    document_value1.mutable_field_value()->set_long_data(document_id);
     (*document_data)["col2"] = document_value1;
   }
 
@@ -2179,7 +2181,7 @@ void SendDocumentAdd(int64_t region_id) {
   {
     dingodb::pb::common::DocumentValue document_value1;
     document_value1.set_field_type(dingodb::pb::common::ScalarFieldType::DOUBLE);
-    document_value1.mutable_field_value()->set_double_data(FLAGS_document_id * 1.0);
+    document_value1.mutable_field_value()->set_double_data(document_id * 1.0);
     (*document_data)["col3"] = document_value1;
   }
 
@@ -2187,11 +2189,11 @@ void SendDocumentAdd(int64_t region_id) {
   {
     dingodb::pb::common::DocumentValue document_value1;
     document_value1.set_field_type(dingodb::pb::common::ScalarFieldType::STRING);
-    document_value1.mutable_field_value()->set_string_data(FLAGS_document_text2);
+    document_value1.mutable_field_value()->set_string_data(document_text2);
     (*document_data)["col4"] = document_value1;
   }
 
-  if (FLAGS_is_update) {
+  if (is_update) {
     request.set_is_update(true);
   }
 
@@ -2229,24 +2231,24 @@ void SendDocumentDelete(int64_t region_id, uint32_t start_id, uint32_t count) {
   DINGO_LOG(INFO) << "Response: " << response.DebugString();
 }
 
-void SendDocumentSearch(int64_t region_id) {
+void SendDocumentSearch(int64_t region_id, std::string query_string, int32_t topn, bool without_scalar) {
   dingodb::pb::document::DocumentSearchRequest request;
   dingodb::pb::document::DocumentSearchResponse response;
 
-  if (FLAGS_query_string.empty()) {
+  if (query_string.empty()) {
     DINGO_LOG(ERROR) << "query_string is empty";
     return;
   }
 
-  if (FLAGS_topn == 0) {
+  if (topn == 0) {
     DINGO_LOG(ERROR) << "topn is 0";
     return;
   }
 
   auto* parameter = request.mutable_parameter();
-  parameter->set_top_n(FLAGS_topn);
-  parameter->set_query_string(FLAGS_query_string);
-  parameter->set_without_scalar_data(FLAGS_without_scalar);
+  parameter->set_top_n(topn);
+  parameter->set_query_string(query_string);
+  parameter->set_without_scalar_data(without_scalar);
 
   *(request.mutable_context()) = RegionRouter::GetInstance().GenConext(region_id);
 
@@ -2257,7 +2259,8 @@ void SendDocumentSearch(int64_t region_id) {
   DINGO_LOG(INFO) << "DocumentSearch response: " << response.DebugString();
 }
 
-void SendDocumentBatchQuery(int64_t region_id, std::vector<int64_t> document_ids) {
+void SendDocumentBatchQuery(int64_t region_id, std::vector<int64_t> document_ids, bool without_scalar,
+                            std::string key) {
   dingodb::pb::document::DocumentBatchQueryRequest request;
   dingodb::pb::document::DocumentBatchQueryResponse response;
 
@@ -2266,13 +2269,13 @@ void SendDocumentBatchQuery(int64_t region_id, std::vector<int64_t> document_ids
     request.add_document_ids(document_id);
   }
 
-  if (FLAGS_without_scalar) {
+  if (without_scalar) {
     request.set_without_scalar_data(true);
   }
 
-  if (!FLAGS_key.empty()) {
-    auto* key = request.mutable_selected_keys()->Add();
-    key->assign(FLAGS_key);
+  if (!key.empty()) {
+    auto* keys = request.mutable_selected_keys()->Add();
+    keys->assign(key);
   }
 
   InteractionManager::GetInstance().SendRequestWithContext("DocumentService", "DocumentBatchQuery", request, response);
@@ -2470,7 +2473,8 @@ void SendVectorAddRetry(std::shared_ptr<Context> ctx) {  // NOLINT
     }
 
     int ret = SendBatchVectorAdd(region_id, ctx->dimension, vector_ids, vector_datas, total_count, ctx->with_scalar,
-                                 ctx->with_table);
+                                 ctx->with_table, ctx->scalar_filter_key, ctx->scalar_filter_value,
+                                 ctx->scalar_filter_key2, ctx->scalar_filter_value2);
     if (ret == dingodb::pb::error::EKEY_OUT_OF_RANGE || ret == dingodb::pb::error::EREGION_REDIRECT) {
       bthread_usleep(1000 * 500);  // 500ms
       index_range = SendGetIndexRange(ctx->table_id);
@@ -2537,7 +2541,8 @@ void SendVectorAdd(std::shared_ptr<Context> ctx) {
     }
 
     SendBatchVectorAdd(ctx->region_id, ctx->dimension, vector_ids, vector_datas, total_count, ctx->with_scalar,
-                       ctx->with_table);
+                       ctx->with_table, ctx->scalar_filter_key, ctx->scalar_filter_value, ctx->scalar_filter_key2,
+                       ctx->scalar_filter_value2);
 
     total_count += vector_ids.size();
 
@@ -2592,7 +2597,7 @@ void SendVectorGetMinId(int64_t region_id) {  // NOLINT
 }
 
 void SendVectorAddBatch(int64_t region_id, uint32_t dimension, uint32_t count, uint32_t step_count, int64_t start_id,
-                        const std::string& file) {
+                        const std::string& file, bool without_scalar) {
   if (step_count == 0) {
     DINGO_LOG(ERROR) << "step_count must be greater than 0";
     return;
@@ -2693,7 +2698,7 @@ void SendVectorAddBatch(int64_t region_id, uint32_t dimension, uint32_t count, u
           vector_with_id->mutable_vector()->add_float_values(random_seeds[(i - start_id) * dimension + j]);
         }
 
-        if (!FLAGS_without_scalar) {
+        if (!without_scalar) {
           for (int k = 0; k < 3; k++) {
             ::dingodb::pb::common::ScalarValue scalar_value;
             int index = k + (i < 30 ? 0 : 1);
@@ -2734,7 +2739,7 @@ void SendVectorAddBatch(int64_t region_id, uint32_t dimension, uint32_t count, u
 }
 
 void SendVectorAddBatchDebug(int64_t region_id, uint32_t dimension, uint32_t count, uint32_t step_count,
-                             int64_t start_id, const std::string& file) {
+                             int64_t start_id, const std::string& file, bool without_scalar) {
   if (step_count == 0) {
     DINGO_LOG(ERROR) << "step_count must be greater than 0";
     return;
@@ -2835,7 +2840,7 @@ void SendVectorAddBatchDebug(int64_t region_id, uint32_t dimension, uint32_t cou
           vector_with_id->mutable_vector()->add_float_values(random_seeds[(i - start_id) * dimension + j]);
         }
 
-        if (!FLAGS_without_scalar) {
+        if (!without_scalar) {
           auto index = (i - start_id);
           auto left = index % 200;
 

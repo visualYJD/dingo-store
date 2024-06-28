@@ -54,6 +54,16 @@ struct Context {
 
     clone_ctx->show_vector = show_vector;
 
+    clone_ctx->scalar_filter_key = scalar_filter_key;
+    clone_ctx->scalar_filter_value = scalar_filter_value;
+    clone_ctx->scalar_filter_key2 = scalar_filter_key2;
+    clone_ctx->scalar_filter_value2 = scalar_filter_value2;
+
+    clone_ctx->show_lock = show_lock;
+    clone_ctx->show_write = show_write;
+    clone_ctx->show_last_data = show_last_data;
+    clone_ctx->show_pretty = show_pretty;
+    clone_ctx->print_column_width = print_column_width;
     return clone_ctx;
   }
 
@@ -87,6 +97,18 @@ struct Context {
 
   std::string csv_data;
   std::string json_data;
+
+  std::string scalar_filter_key;
+  std::string scalar_filter_value;
+  std::string scalar_filter_key2;
+  std::string scalar_filter_value2;
+
+  bool show_lock;
+  bool show_write;
+  bool show_last_data;
+  bool show_all_data;
+  bool show_pretty;
+  int32_t print_column_width;
 };
 
 // meta
@@ -100,10 +122,11 @@ dingodb::pb::common::Region SendQueryRegion(int64_t region_id);
 dingodb::pb::store::Context GetRegionContext(int64_t region_id);
 
 // document
-void SendDocumentAdd(int64_t region_id);
+void SendDocumentAdd(int64_t region_id, int64_t document_id, std::string document_text1, std::string document_text2,
+                     bool is_update);
 void SendDocumentDelete(int64_t region_id, uint32_t start_id, uint32_t count);
-void SendDocumentSearch(int64_t region_id);
-void SendDocumentBatchQuery(int64_t region_id, std::vector<int64_t> document_ids);
+void SendDocumentSearch(int64_t region_id, std::string query_string, int32_t topn, bool without_scalar);
+void SendDocumentBatchQuery(int64_t region_id, std::vector<int64_t> document_ids, bool without_scalar, std::string key);
 void SendDocumentGetMaxId(int64_t region_id);
 void SendDocumentGetMinId(int64_t region_id);
 void SendDocumentScanQuery(int64_t region_id, int64_t start_id, int64_t end_id, int64_t limit, bool is_reverse,
@@ -146,7 +169,7 @@ void SendVectorDelete(int64_t region_id, uint32_t start_id, uint32_t count);
 void SendVectorGetMaxId(int64_t region_id);
 void SendVectorGetMinId(int64_t region_id);
 void SendVectorAddBatch(int64_t region_id, uint32_t dimension, uint32_t count, uint32_t step_count, int64_t start_id,
-                        const std::string& file);
+                        const std::string& file, bool without_scalar);
 void SendVectorScanQuery(int64_t region_id, int64_t start_id, int64_t end_id, int64_t limit, bool is_reverse,
                          bool without_vector, bool without_scalar, bool without_table, std::string key,
                          std::string scalar_filter_key, std::string scalar_filter_value, std::string scalar_filter_key2,
@@ -155,7 +178,7 @@ void SendVectorScanQuery(int64_t region_id, int64_t start_id, int64_t end_id, in
 void SendVectorScanDump(int64_t region_id, int64_t start_id, int64_t end_id, int64_t limit, bool is_reverse,
                         std::string csv_output);
 void SendVectorAddBatchDebug(int64_t region_id, uint32_t dimension, uint32_t count, uint32_t step_count,
-                             int64_t start_id, const std::string& file);
+                             int64_t start_id, const std::string& file, bool without_scalar);
 void SendVectorGetRegionMetrics(int64_t region_id);
 void SendVectorCalcDistance(uint32_t dimension, const std::string& alg_type, const std::string& metric_type,
                             int32_t left_vector_size, int32_t right_vector_size, bool is_return_normlize);
@@ -195,25 +218,67 @@ std::string HexToVectorPrefix(const std::string& hex);
 bool TxnGetRegion(int64_t region_id, dingodb::pb::common::Region& region);
 std::string GetServiceName(const dingodb::pb::common::Region& region);
 
-void SendTxnGet(int64_t region_id);
-void SendTxnBatchGet(int64_t region_id);
-void SendTxnScan(int64_t region_id);
-void SendTxnPessimisticLock(int64_t region_id);
-void SendTxnPessimisticRollback(int64_t region_id);
-void SendTxnPrewrite(int64_t region_id);
-void SendTxnCommit(int64_t region_id);
-void SendTxnCheckTxnStatus(int64_t region_id);
-void SendTxnResolveLock(int64_t region_id);
-void SendTxnBatchRollback(int64_t region_id);
-void SendTxnScanLock(int64_t region_id);
-void SendTxnHeartBeat(int64_t region_id);
-void SendTxnGc(int64_t region_id);
-void SendTxnDeleteRange(int64_t region_id);
-void SendTxnDump(int64_t region_id);
+void SendTxnGet(int64_t region_id, bool rc, std::string key, bool key_is_hex, int64_t start_ts, int64_t resolve_locks);
 
-void StoreSendTxnPrewrite(int64_t region_id, const dingodb::pb::common::Region& region);
-void IndexSendTxnPrewrite(int64_t region_id, const dingodb::pb::common::Region& region);
-void DocumentSendTxnPrewrite(int64_t region_id, const dingodb::pb::common::Region& region);
+void SendTxnBatchGet(int64_t region_id, bool rc, std::string key, std::string key2, bool key_is_hex, int64_t start_ts,
+                     int64_t resolve_locks);
+void SendTxnScan(int64_t region_id, bool rc, std::string start_key, std::string end_key, int64_t limit,
+                 int64_t start_ts, bool is_reverse, bool key_only, int64_t resolve_locks, bool key_is_hex,
+                 bool with_start, bool with_end);
+
+void SendTxnPessimisticLock(int64_t region_id, bool rc, std::string primary_lock, bool key_is_hex, int64_t start_ts,
+                            int64_t lock_ttl, int64_t for_update_ts, std::string mutation_op, std::string key,
+                            std::string value, bool value_is_hex);
+
+void SendTxnPessimisticRollback(int64_t region_id, bool rc, int64_t start_ts, int64_t for_update_ts, std::string key,
+                                bool key_is_hex);
+
+void SendTxnPrewrite(int64_t region_id, bool rc, std::string primary_lock, bool key_is_hex, int64_t start_ts,
+                     int64_t lock_ttl, int64_t txn_size, bool try_one_pc, int64_t max_commit_ts,
+                     std::string mutation_op, std::string key, std::string key2, std::string value, std::string value2,
+                     bool value_is_hex, std::string extra_data, int64_t for_update_ts, int64_t vector_id,
+                     int64_t document_id, std::string document_text1, std::string document_text2);
+
+void SendTxnCommit(int64_t region_id, bool rc, int64_t start_ts, int64_t commit_ts, std::string key, std::string key2,
+                   bool key_is_hex);
+
+void SendTxnCheckTxnStatus(int64_t region_id, bool rc, std::string primary_key, bool key_is_hex, int64_t lock_ts,
+                           int64_t caller_start_ts, int64_t current_ts);
+
+void SendTxnResolveLock(int64_t region_id, bool rc, int64_t start_ts, int64_t commit_ts, std::string key,
+                        bool key_is_hex);
+
+void SendTxnBatchRollback(int64_t region_id, bool rc, std::string key, std::string key2, bool key_is_hex,
+                          int64_t start_ts);
+
+void SendTxnScanLock(int64_t region_id, bool rc, int64_t max_ts, std::string start_key, std::string end_key,
+                     bool key_is_hex, int64_t limit);
+
+void SendTxnHeartBeat(int64_t region_id, bool rc, std::string primary_lock, int64_t start_ts, int64_t advise_lock_ttl,
+                      bool key_is_hex);
+void SendTxnGc(int64_t region_id, bool rc, int64_t safe_point_ts);
+
+void SendTxnDeleteRange(int64_t region_id, bool rc, std::string start_key, std::string end_key, bool key_is_hex);
+
+void SendTxnDump(int64_t region_id, bool rc, std::string start_key, std::string end_key, bool key_is_hex,
+                 int64_t start_ts, int64_t end_ts);
+
+void StoreSendTxnPrewrite(int64_t region_id, const dingodb::pb::common::Region& region, bool rc,
+                          std::string primary_lock, bool key_is_hex, int64_t start_ts, int64_t lock_ttl,
+                          int64_t txn_size, bool try_one_pc, int64_t max_commit_ts, std::string mutation_op,
+                          std::string key, std::string key2, std::string value, std::string value2, bool value_is_hex,
+                          std::string extra_data, int64_t for_update_ts);
+
+void IndexSendTxnPrewrite(int64_t region_id, const dingodb::pb::common::Region& region, bool rc,
+                          std::string primary_lock, int64_t start_ts, int64_t lock_ttl, int64_t txn_size,
+                          bool try_one_pc, int64_t max_commit_ts, std::string mutation_op, std::string extra_data,
+                          int64_t for_update_ts, int64_t vector_id);
+
+void DocumentSendTxnPrewrite(int64_t region_id, const dingodb::pb::common::Region& region, bool rc,
+                             std::string primary_lock, int64_t start_ts, int64_t lock_ttl, int64_t txn_size,
+                             bool try_one_pc, int64_t max_commit_ts, std::string mutation_op, std::string extra_data,
+                             int64_t for_update_ts, int64_t document_id, std::string document_text1,
+                             std::string document_text2);
 
 // region
 void SendAddRegion(int64_t region_id, const std::string& raft_group, std::vector<std::string> raft_addrs);

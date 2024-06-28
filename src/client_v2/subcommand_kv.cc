@@ -1,3 +1,18 @@
+
+// Copyright (c) 2023 dingodb.com, Inc. All Rights Reserved
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <iostream>
 
 #include "client_v2/client_helper.h"
@@ -9,7 +24,7 @@
 #include "subcommand_coordinator.h"
 namespace client_v2 {
 
-butil::Status CoorKvRange(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version_,
+butil::Status CoorKvRange(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version,
                           const std::string& key, const std::string& range_end, int64_t limit,
                           std::vector<dingodb::pb::version::Kv>& kvs) {
   dingodb::pb::version::RangeRequest request;
@@ -21,7 +36,7 @@ butil::Status CoorKvRange(std::shared_ptr<dingodb::CoordinatorInteraction> coord
   // request.set_keys_only(FLAGS_keys_only);
   // request.set_count_only(FLAGS_count_only);
 
-  auto status = coordinator_interaction_version_->SendRequest("KvRange", request, response);
+  auto status = coordinator_interaction_version->SendRequest("KvRange", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 
@@ -36,13 +51,13 @@ butil::Status CoorKvRange(std::shared_ptr<dingodb::CoordinatorInteraction> coord
   }
 }
 
-void GetWatchKeyAndRevision(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version_,
+void GetWatchKeyAndRevision(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version,
                             const std::string& lock_prefix, const std::string& lock_key, std::string& watch_key,
                             int64_t& watch_revision) {
   DINGO_LOG(INFO) << "lock_prefix=" << lock_prefix << ", lock_key=" << lock_key;
   // check if lock success
   std::vector<dingodb::pb::version::Kv> kvs;
-  auto ret = CoorKvRange(coordinator_interaction_version_, lock_prefix, lock_prefix + "\xFF", 0, kvs);
+  auto ret = CoorKvRange(coordinator_interaction_version, lock_prefix, lock_prefix + "\xFF", 0, kvs);
   if (!ret.ok()) {
     DINGO_LOG(WARNING) << "CoorKvRange failed, ret=" << ret;
     return;
@@ -103,7 +118,7 @@ void GetWatchKeyAndRevision(std::shared_ptr<dingodb::CoordinatorInteraction> coo
   }
 }
 
-butil::Status CoorKvPut(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version_,
+butil::Status CoorKvPut(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version,
                         const std::string& key, const ::std::string& value, int64_t lease, int64_t& revision) {
   dingodb::pb::version::PutRequest request;
   dingodb::pb::version::PutResponse response;
@@ -114,7 +129,7 @@ butil::Status CoorKvPut(std::shared_ptr<dingodb::CoordinatorInteraction> coordin
 
   request.set_lease(lease);
 
-  auto status = coordinator_interaction_version_->SendRequest("KvPut", request, response);
+  auto status = coordinator_interaction_version->SendRequest("KvPut", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 
@@ -127,7 +142,7 @@ butil::Status CoorKvPut(std::shared_ptr<dingodb::CoordinatorInteraction> coordin
   }
 }
 
-butil::Status CoorLeaseGrant(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version_,
+butil::Status CoorLeaseGrant(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version,
                              int64_t& lease_id, int64_t& ttl) {
   dingodb::pb::version::LeaseGrantRequest request;
   dingodb::pb::version::LeaseGrantResponse response;
@@ -135,7 +150,7 @@ butil::Status CoorLeaseGrant(std::shared_ptr<dingodb::CoordinatorInteraction> co
   request.set_id(lease_id);
   request.set_ttl(ttl);
 
-  auto status = coordinator_interaction_version_->SendRequest("LeaseGrant", request, response);
+  auto status = coordinator_interaction_version->SendRequest("LeaseGrant", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 
@@ -148,14 +163,14 @@ butil::Status CoorLeaseGrant(std::shared_ptr<dingodb::CoordinatorInteraction> co
   }
 }
 
-butil::Status CoorLeaseRenew(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version_,
+butil::Status CoorLeaseRenew(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version,
                              int64_t lease_id) {
   dingodb::pb::version::LeaseRenewRequest request;
   dingodb::pb::version::LeaseRenewResponse response;
 
   request.set_id(lease_id);
 
-  auto status = coordinator_interaction_version_->SendRequest("LeaseRenew", request, response);
+  auto status = coordinator_interaction_version->SendRequest("LeaseRenew", request, response);
   // DINGO_LOG(INFO) << "SendRequest status=" << status;
   // DINGO_LOG(INFO) << response.DebugString();
 
@@ -165,13 +180,14 @@ butil::Status CoorLeaseRenew(std::shared_ptr<dingodb::CoordinatorInteraction> co
     return butil::Status(response.error().errcode(), response.error().errmsg());
   }
 }
-void PeriodRenwLease(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version_, int64_t lease_id) {
+void PeriodRenwLease(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version,
+                     int64_t lease_id) {
   for (;;) {
-    auto ret = CoorLeaseRenew(coordinator_interaction_version_, lease_id);
+    auto ret = CoorLeaseRenew(coordinator_interaction_version, lease_id);
     bthread_usleep(3 * 900L * 1000L);
   }
 }
-butil::Status CoorWatch(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version_,
+butil::Status CoorWatch(std::shared_ptr<dingodb::CoordinatorInteraction> coordinator_interaction_version,
                         const std::string& key, int64_t start_revision, bool need_prev_kv, bool no_put, bool no_delete,
                         bool wait_on_not_exist_key, std::vector<dingodb::pb::version::Event>& events) {
   dingodb::pb::version::WatchRequest request;
@@ -193,13 +209,12 @@ butil::Status CoorWatch(std::shared_ptr<dingodb::CoordinatorInteraction> coordin
   }
 
   DINGO_LOG(INFO) << "wait_on_not_exist_key=" << wait_on_not_exist_key << ", no_put=" << no_put
-                  << ", no_delete=" << no_delete << ", need_prev_kv=" << need_prev_kv
-                  << ", revision=" << start_revision
+                  << ", no_delete=" << no_delete << ", need_prev_kv=" << need_prev_kv << ", revision=" << start_revision
                   << ", key=" << key;
 
   // wait 600s for event
   DINGO_LOG(INFO) << "SendRequest watch";
-  auto status = coordinator_interaction_version_->SendRequest("Watch", request, response, 600000);
+  auto status = coordinator_interaction_version->SendRequest("Watch", request, response, 600000);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 
@@ -213,13 +228,13 @@ butil::Status CoorWatch(std::shared_ptr<dingodb::CoordinatorInteraction> coordin
   }
 }
 
-void SetUpSubcommandKvHello(CLI::App &app) {
+void SetUpSubcommandKvHello(CLI::App& app) {
   auto opt = std::make_shared<KvHelloOptions>();
   auto coor = app.add_subcommand("KvHello", "Kv hello")->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandKvHello(*opt); });
 }
 
-void RunSubcommandKvHello(KvHelloOptions const &opt) {
+void RunSubcommandKvHello(KvHelloOptions const& opt) {
   if (SetUp(opt.coor_url) < 0) {
     DINGO_LOG(ERROR) << "Set Up failed coor_url=" << opt.coor_url;
     exit(-1);
@@ -232,19 +247,19 @@ void RunSubcommandKvHello(KvHelloOptions const &opt) {
   request.set_hello(0);
   request.set_get_memory_info(true);
 
-  auto status = coordinator_interaction_version_->SendRequest("Hello", request, response);
+  auto status = coordinator_interaction_version->SendRequest("Hello", request, response);
   DINGO_LOG(INFO) << "SendRequest status: " << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
 
-void SetUpSubcommandGetRawKvIndex(CLI::App &app) {
+void SetUpSubcommandGetRawKvIndex(CLI::App& app) {
   auto opt = std::make_shared<GetRawKvIndexOptions>();
   auto coor = app.add_subcommand("GetRawKvIndex", "Get raw kv index ")->group("Coordinator Manager Commands");
   coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandGetRawKvIndex(*opt); });
 }
 
-void RunSubcommandGetRawKvIndex(GetRawKvIndexOptions const &opt) {
+void RunSubcommandGetRawKvIndex(GetRawKvIndexOptions const& opt) {
   if (SetUp(opt.coor_url) < 0) {
     DINGO_LOG(ERROR) << "Set Up failed coor_url=" << opt.coor_url;
     exit(-1);
@@ -254,12 +269,12 @@ void RunSubcommandGetRawKvIndex(GetRawKvIndexOptions const &opt) {
 
   request.set_key(opt.key);
 
-  auto status = coordinator_interaction_version_->SendRequest("GetRawKvIndex", request, response);
+  auto status = coordinator_interaction_version->SendRequest("GetRawKvIndex", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
 
-void SetUpSubcommandGetRawKvRev(CLI::App &app) {
+void SetUpSubcommandGetRawKvRev(CLI::App& app) {
   auto opt = std::make_shared<GetRawKvRevOptions>();
   auto coor = app.add_subcommand("GetRawKvRev", "Get raw kv rev ")->group("Coordinator Manager Commands");
   coor->add_option("--rversion", opt->revision, "Request parameter rversion")
@@ -271,7 +286,7 @@ void SetUpSubcommandGetRawKvRev(CLI::App &app) {
   coor->callback([opt]() { RunSubcommandGetRawKvRev(*opt); });
 }
 
-void RunSubcommandGetRawKvRev(GetRawKvRevOptions const &opt) {
+void RunSubcommandGetRawKvRev(GetRawKvRevOptions const& opt) {
   if (SetUp(opt.coor_url) < 0) {
     DINGO_LOG(ERROR) << "Set Up failed coor_url=" << opt.coor_url;
     exit(-1);
@@ -282,12 +297,12 @@ void RunSubcommandGetRawKvRev(GetRawKvRevOptions const &opt) {
   request.mutable_revision()->set_main(opt.revision);
   request.mutable_revision()->set_sub(opt.sub_revision);
 
-  auto status = coordinator_interaction_version_->SendRequest("GetRawKvRev", request, response);
+  auto status = coordinator_interaction_version->SendRequest("GetRawKvRev", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
 
-void SetUpSubcommandCoorKvRange(CLI::App &app) {
+void SetUpSubcommandCoorKvRange(CLI::App& app) {
   auto opt = std::make_shared<CoorKvRangeOptions>();
   auto coor = app.add_subcommand("CoorKvRange", "Coor kv range ")->group("Coordinator Manager Commands");
   coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
@@ -306,7 +321,7 @@ void SetUpSubcommandCoorKvRange(CLI::App &app) {
   coor->callback([opt]() { RunSubcommandCoorKvRange(*opt); });
 }
 
-void RunSubcommandCoorKvRange(CoorKvRangeOptions const &opt) {
+void RunSubcommandCoorKvRange(CoorKvRangeOptions const& opt) {
   if (SetUp(opt.coor_url) < 0) {
     DINGO_LOG(ERROR) << "Set Up failed coor_url=" << opt.coor_url;
     exit(-1);
@@ -320,12 +335,12 @@ void RunSubcommandCoorKvRange(CoorKvRangeOptions const &opt) {
   request.set_keys_only(opt.keys_only);
   request.set_count_only(opt.count_only);
 
-  auto status = coordinator_interaction_version_->SendRequest("KvRange", request, response);
+  auto status = coordinator_interaction_version->SendRequest("KvRange", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
 
-void SetUpSubcommandCoorKvPut(CLI::App &app) {
+void SetUpSubcommandCoorKvPut(CLI::App& app) {
   auto opt = std::make_shared<CoorKvPutOptions>();
   auto coor = app.add_subcommand("CoorKvPut", "Coor kv put ")->group("Coordinator Manager Commands");
   coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
@@ -345,7 +360,7 @@ void SetUpSubcommandCoorKvPut(CLI::App &app) {
   coor->callback([opt]() { RunSubcommandCoorKvPut(*opt); });
 }
 
-void RunSubcommandCoorKvPut(CoorKvPutOptions const &opt) {
+void RunSubcommandCoorKvPut(CoorKvPutOptions const& opt) {
   if (SetUp(opt.coor_url) < 0) {
     DINGO_LOG(ERROR) << "Set Up failed coor_url=" << opt.coor_url;
     exit(-1);
@@ -353,7 +368,7 @@ void RunSubcommandCoorKvPut(CoorKvPutOptions const &opt) {
   dingodb::pb::version::PutRequest request;
   dingodb::pb::version::PutResponse response;
 
-  auto *key_value = request.mutable_key_value();
+  auto* key_value = request.mutable_key_value();
   key_value->set_key(opt.key);
   key_value->set_value(opt.value);
 
@@ -362,12 +377,12 @@ void RunSubcommandCoorKvPut(CoorKvPutOptions const &opt) {
   request.set_ignore_value(opt.ignore_value);
   request.set_need_prev_kv(opt.need_prev_kv);
 
-  auto status = coordinator_interaction_version_->SendRequest("KvPut", request, response);
+  auto status = coordinator_interaction_version->SendRequest("KvPut", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
 
-void SetUpSubcommandCoorKvDeleteRange(CLI::App &app) {
+void SetUpSubcommandCoorKvDeleteRange(CLI::App& app) {
   auto opt = std::make_shared<CoorKvDeleteRangeOptions>();
   auto coor = app.add_subcommand("CoorKvDeleteRange", "Coor kv delete range ")->group("Coordinator Manager Commands");
   coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
@@ -380,7 +395,7 @@ void SetUpSubcommandCoorKvDeleteRange(CLI::App &app) {
   coor->callback([opt]() { RunSubcommandCoorKvDeleteRange(*opt); });
 }
 
-void RunSubcommandCoorKvDeleteRange(CoorKvDeleteRangeOptions const &opt) {
+void RunSubcommandCoorKvDeleteRange(CoorKvDeleteRangeOptions const& opt) {
   if (SetUp(opt.coor_url) < 0) {
     DINGO_LOG(ERROR) << "Set Up failed coor_url=" << opt.coor_url;
     exit(-1);
@@ -392,12 +407,12 @@ void RunSubcommandCoorKvDeleteRange(CoorKvDeleteRangeOptions const &opt) {
   request.set_range_end(opt.range_end);
   request.set_need_prev_kv(opt.need_prev_kv);
 
-  auto status = coordinator_interaction_version_->SendRequest("KvDeleteRange", request, response);
+  auto status = coordinator_interaction_version->SendRequest("KvDeleteRange", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
 
-void SetUpSubcommandCoorKvCompaction(CLI::App &app) {
+void SetUpSubcommandCoorKvCompaction(CLI::App& app) {
   auto opt = std::make_shared<CoorKvCompactionOptions>();
   auto coor = app.add_subcommand("CoorKvDeleteRange", "Coor kv delete range ")->group("Coordinator Manager Commands");
   coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
@@ -410,7 +425,7 @@ void SetUpSubcommandCoorKvCompaction(CLI::App &app) {
   coor->callback([opt]() { RunSubcommandCoorKvCompaction(*opt); });
 }
 
-void RunSubcommandCoorKvCompaction(CoorKvCompactionOptions const &opt) {
+void RunSubcommandCoorKvCompaction(CoorKvCompactionOptions const& opt) {
   if (SetUp(opt.coor_url) < 0) {
     DINGO_LOG(ERROR) << "Set Up failed coor_url=" << opt.coor_url;
     exit(-1);
@@ -422,12 +437,12 @@ void RunSubcommandCoorKvCompaction(CoorKvCompactionOptions const &opt) {
   request.set_range_end(opt.range_end);
   request.set_compact_revision(opt.revision);
 
-  auto status = coordinator_interaction_version_->SendRequest("KvCompaction", request, response);
+  auto status = coordinator_interaction_version->SendRequest("KvCompaction", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
 
-void SetUpSubcommandOneTimeWatch(CLI::App &app) {
+void SetUpSubcommandOneTimeWatch(CLI::App& app) {
   auto opt = std::make_shared<OneTimeWatchOptions>();
   auto coor = app.add_subcommand("OneTimeWatch", "One time watch ")->group("Coordinator Manager Commands");
   coor->add_option("--key", opt->key, "Request parameter key")->required()->group("Coordinator Manager Commands");
@@ -452,7 +467,7 @@ void SetUpSubcommandOneTimeWatch(CLI::App &app) {
   coor->callback([opt]() { RunSubcommandOneTimeWatch(*opt); });
 }
 
-void RunSubcommandOneTimeWatch(OneTimeWatchOptions const &opt) {
+void RunSubcommandOneTimeWatch(OneTimeWatchOptions const& opt) {
   if (SetUp(opt.coor_url) < 0) {
     DINGO_LOG(ERROR) << "Set Up failed coor_url=" << opt.coor_url;
     exit(-1);
@@ -460,8 +475,7 @@ void RunSubcommandOneTimeWatch(OneTimeWatchOptions const &opt) {
   dingodb::pb::version::WatchRequest request;
   dingodb::pb::version::WatchResponse response;
 
-
-  auto *one_time_watch_req = request.mutable_one_time_request();
+  auto* one_time_watch_req = request.mutable_one_time_request();
 
   one_time_watch_req->set_key(opt.key);
   one_time_watch_req->set_need_prev_kv(opt.need_prev_kv);
@@ -484,24 +498,25 @@ void RunSubcommandOneTimeWatch(OneTimeWatchOptions const &opt) {
   for (uint32_t i = 0; i < opt.max_watch_count; i++) {
     // wait 600s for event
     DINGO_LOG(INFO) << "SendRequest watch_count=" << i;
-    auto status = coordinator_interaction_version_->SendRequest("Watch", request, response, 600000);
+    auto status = coordinator_interaction_version->SendRequest("Watch", request, response, 600000);
     DINGO_LOG(INFO) << "SendRequest status=" << status << ", watch_count=" << i;
     DINGO_LOG(INFO) << response.DebugString();
   }
 }
 
-
-void SetUpSubcommandLock(CLI::App &app) {
+void SetUpSubcommandLock(CLI::App& app) {
   auto opt = std::make_shared<LockOptions>();
   auto coor = app.add_subcommand("Lock", "Lock")->group("Coordinator Manager Commands");
-  coor->add_option("--lock_name", opt->lock_name, "Request parameter lock_name")->required()->group("Coordinator Manager Commands");
+  coor->add_option("--lock_name", opt->lock_name, "Request parameter lock_name")
+      ->required()
+      ->group("Coordinator Manager Commands");
   coor->add_option("--client_uuid", opt->client_uuid, "Request parameter client_uuid")
       ->required()
       ->group("Coordinator Manager Commands");
   coor->callback([opt]() { RunSubcommandLock(*opt); });
 }
 
-void RunSubcommandLock(LockOptions const &opt) {
+void RunSubcommandLock(LockOptions const& opt) {
   if (SetUp(opt.coor_url) < 0) {
     DINGO_LOG(ERROR) << "Set Up failed coor_url=" << opt.coor_url;
     exit(-1);
@@ -515,18 +530,18 @@ void RunSubcommandLock(LockOptions const &opt) {
   // create lease
   int64_t lease_id = 0;
   int64_t ttl = 3;
-  auto ret = CoorLeaseGrant(coordinator_interaction_version_, lease_id, ttl);
+  auto ret = CoorLeaseGrant(coordinator_interaction_version, lease_id, ttl);
   if (!ret.ok()) {
     DINGO_LOG(WARNING) << "CoorLeaseGrant failed, ret=" << ret;
     return;
   }
 
   // renew lease in background
-  Bthread bt(nullptr, PeriodRenwLease, coordinator_interaction_version_, lease_id);
+  Bthread bt(nullptr, PeriodRenwLease, coordinator_interaction_version, lease_id);
 
   // write lock key
   int64_t revision = 0;
-  ret = CoorKvPut(coordinator_interaction_version_, lock_key, "1", lease_id, revision);
+  ret = CoorKvPut(coordinator_interaction_version, lock_key, "1", lease_id, revision);
   if (!ret.ok()) {
     DINGO_LOG(WARNING) << "CoorKvPut failed, ret=" << ret;
     return;
@@ -537,7 +552,7 @@ void RunSubcommandLock(LockOptions const &opt) {
     // check if lock success
     std::string watch_key;
     int64_t watch_revision = 0;
-    GetWatchKeyAndRevision(coordinator_interaction_version_, lock_prefix, lock_key, watch_key, watch_revision);
+    GetWatchKeyAndRevision(coordinator_interaction_version, lock_prefix, lock_key, watch_key, watch_revision);
 
     if (watch_key == lock_key) {
       DINGO_LOG(INFO) << "Get Lock success";
@@ -546,7 +561,7 @@ void RunSubcommandLock(LockOptions const &opt) {
 
     DINGO_LOG(WARNING) << "Lock failed, watch for key=" << watch_key << ", watch_revision=" << watch_revision;
     std::vector<dingodb::pb::version::Event> events;
-    ret = CoorWatch(coordinator_interaction_version_, watch_key, watch_revision, true, false, false, false, events);
+    ret = CoorWatch(coordinator_interaction_version, watch_key, watch_revision, true, false, false, false, events);
     if (!ret.ok()) {
       DINGO_LOG(WARNING) << "CoorWatch failed, ret=" << ret;
       return;

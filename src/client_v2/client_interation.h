@@ -32,7 +32,7 @@
 #include "client_v2/client_router.h"
 #include "common/logging.h"
 #include "fmt/core.h"
-#include "gflags/gflags_declare.h"
+// #include "gflags/gdeclare.h"
 #include "proto/common.pb.h"
 #include "proto/debug.pb.h"
 #include "proto/document.pb.h"
@@ -42,13 +42,14 @@
 #include "proto/store.pb.h"
 #include "proto/util.pb.h"
 
-DECLARE_bool(log_each_request);
-DECLARE_int64(timeout_ms);
+// DECLARE_bool(log_each_request);
+// DECLARE_int64(timeout_ms);
 
 namespace client_v2 {
 
 const int kMaxRetry = 5;
-
+const int64_t timeout_ms = 60000;
+const bool log_each_request = true;
 class ServerInteraction {
  public:
   ServerInteraction() : leader_index_(0){};
@@ -115,11 +116,11 @@ butil::Status ServerInteraction::SendRequest(const std::string& service_name, co
   int retry_count = 0;
   do {
     brpc::Controller cntl;
-    cntl.set_timeout_ms(FLAGS_timeout_ms);
+    cntl.set_timeout_ms(timeout_ms);
     cntl.set_log_id(butil::fast_rand());
     const int leader_index = GetLeader();
     channels_[leader_index]->CallMethod(method, &cntl, &request, &response, nullptr);
-    if (FLAGS_log_each_request) {
+    if (log_each_request) {
       DINGO_LOG(INFO) << fmt::format("send request api [{}] {} response: {} request: {}", leader_index, api_name,
                                      response.ShortDebugString().substr(0, 256),
                                      request.ShortDebugString().substr(0, 256));
@@ -143,7 +144,7 @@ butil::Status ServerInteraction::SendRequest(const std::string& service_name, co
         NextLeader(response.error().leader_location());
 
       } else {
-        if (!FLAGS_log_each_request) {
+        if (!log_each_request) {
           DINGO_LOG(ERROR) << fmt::format("{} response failed, error {} {}", api_name,
                                           dingodb::pb::error::Errno_Name(response.error().errcode()),
                                           response.error().errmsg());
@@ -307,6 +308,6 @@ butil::Status InteractionManager::AllSendRequestWithContext(const std::string& s
   }
 }
 
-}  // namespace client
+}  // namespace client_v2
 
 #endif  // DINGODB_CLIENT_INTERATION_H_

@@ -1,3 +1,18 @@
+
+// Copyright (c) 2023 dingodb.com, Inc. All Rights Reserved
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <iostream>
 
 #include "client_v2/client_helper.h"
@@ -29,7 +44,7 @@ void RunSubcommandLeaseGrant(LeaseGrantOptions const &opt) {
   request.set_id(opt.id);
   request.set_ttl(opt.ttl);
 
-  auto status = coordinator_interaction_version_->SendRequest("LeaseGrant", request, response);
+  auto status = coordinator_interaction_version->SendRequest("LeaseGrant", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -53,7 +68,7 @@ void RunSubcommandLeaseRevoke(LeaseRevokeOptions const &opt) {
 
   request.set_id(opt.id);
 
-  auto status = coordinator_interaction_version_->SendRequest("LeaseRevoke", request, response);
+  auto status = coordinator_interaction_version->SendRequest("LeaseRevoke", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -76,7 +91,7 @@ void RunSubcommandLeaseRenew(LeaseRenewOptions const &opt) {
   dingodb::pb::version::LeaseRenewResponse response;
   request.set_id(opt.id);
 
-  auto status = coordinator_interaction_version_->SendRequest("LeaseRenew", request, response);
+  auto status = coordinator_interaction_version->SendRequest("LeaseRenew", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
@@ -100,11 +115,10 @@ void RunSubcommandLeaseQuery(LeaseQueryOptions const &opt) {
   request.set_id(opt.id);
   request.set_keys(true);
 
-  auto status = coordinator_interaction_version_->SendRequest("LeaseQuery", request, response);
+  auto status = coordinator_interaction_version->SendRequest("LeaseQuery", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
-
 
 void SetUpSubcommandListLeases(CLI::App &app) {
   auto opt = std::make_shared<ListLeasesOptions>();
@@ -122,11 +136,9 @@ void RunSubcommandListLeases(ListLeasesOptions const &opt) {
   dingodb::pb::version::ListLeasesRequest request;
   dingodb::pb::version::ListLeasesResponse response;
 
-  auto status = coordinator_interaction_version_->SendRequest("ListLeases", request, response);
+  auto status = coordinator_interaction_version->SendRequest("ListLeases", request, response);
   DINGO_LOG(INFO) << "SendRequest status=" << status;
   DINGO_LOG(INFO) << response.DebugString();
 }
-
-
 
 }  // namespace client_v2
